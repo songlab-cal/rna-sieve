@@ -79,7 +79,7 @@ def minimize_phi_row(phi_prev, psi_scalars, observed_phi_row, sigma_row, alphas,
     return phi_final
 
 
-def minimize_phi(phi_prev, psis, observed_phi, sigma, alphas, ns, m, parallelized=False, nprocesses=1):
+def minimize_phi(phi_prev, psis, observed_phi, sigma, alphas, ns, m, parallelized=False, num_process=1):
     if not parallelized:
         phi_next = np.empty((0, phi_prev.shape[1]), dtype=np.float64)
         for i in range(phi_prev.shape[0]):
@@ -92,7 +92,7 @@ def minimize_phi(phi_prev, psis, observed_phi, sigma, alphas, ns, m, parallelize
             phi_next._type_, phi_next)
         shared_array_id = "MINIMIZE_PHI"
         shared_dict[shared_array_id] = phi_next_shared_array
-        p = Pool(processes=nprocesses)
+        p = Pool(processes=num_process)
         p.starmap(minimize_phi_row, [(phi_prev[i, :].reshape(1, -1), psis[i].reshape(1, -1), observed_phi[i, :].reshape(
             1, -1), sigma[i, :].reshape(1, -1), alphas, ns, m, i, True, shared_array_id) for i in range(phi_prev.shape[0])])
         p.close()
@@ -127,7 +127,7 @@ def minimize_alpha_LS_helper(alpha_prev, sigma, phi, psi, n, eps, max_iter):
     return alpha_cur
 
 
-def alternate_minimization(phi, sigma, m, psis, eps, delta, max_iter, uniform_init, parallelized=False, nprocesses=1):
+def alternate_minimization(phi, sigma, m, psis, eps, delta, max_iter, uniform_init, parallelized=False, num_process=1):
     # note rcond parameter is set to silence a deprecation warning
     naive_LS = np.clip(np.linalg.lstsq(phi, psis, rcond=-1)[0], 0, None)
     if uniform_init:
@@ -141,7 +141,7 @@ def alternate_minimization(phi, sigma, m, psis, eps, delta, max_iter, uniform_in
         phi_past, phi, psis, alpha_pasts, sigma, n_pasts, m)
 
     phi_next = minimize_phi(phi_past, psis, phi, sigma,
-                            alpha_pasts, n_pasts, m, parallelized, nprocesses)
+                            alpha_pasts, n_pasts, m, parallelized, num_process)
     alpha_nexts = np.zeros(alpha_pasts.shape)
     for i in range(alpha_nexts.shape[0]):
         alpha_nexts[i] = minimize_alpha_LS_helper(alpha_pasts[i].reshape(
@@ -161,7 +161,7 @@ def alternate_minimization(phi, sigma, m, psis, eps, delta, max_iter, uniform_in
         phi_past, alpha_pasts, n_pasts, L_past = phi_next, alpha_nexts, n_nexts, L_next
 
         phi_next = minimize_phi(
-            phi_past, psis, phi, sigma, alpha_pasts, n_nexts, m, parallelized, nprocesses)
+            phi_past, psis, phi, sigma, alpha_pasts, n_nexts, m, parallelized, num_process)
         alpha_nexts = np.zeros(alpha_pasts.shape)
         for i in range(alpha_nexts.shape[0]):
             alpha_nexts[i] = minimize_alpha_LS_helper(alpha_pasts[i].reshape(
@@ -194,7 +194,7 @@ def minimize_phi_row_grad(observed_phi_row, observed_psi_scalars, alphas, sigma_
     return phi_row_clipped
 
 
-def minimize_phi_grad(observed_phi, observed_psis, alphas, sigma, phi_past, ns, m, parallelized=False, nprocesses=1):
+def minimize_phi_grad(observed_phi, observed_psis, alphas, sigma, phi_past, ns, m, parallelized=False, num_process=1):
     if not parallelized:
         phi_next = np.empty((0, phi_past.shape[1]), dtype=np.float64)
         for i in range(phi_past.shape[0]):
@@ -207,21 +207,21 @@ def minimize_phi_grad(observed_phi, observed_psis, alphas, sigma, phi_past, ns, 
             phi_next._type_, phi_next)
         shared_array_id = "PHI_GRAD"
         shared_dict[shared_array_id] = phi_next_shared_array
-        p = Pool(processes=nprocesses)
+        p = Pool(processes=num_process)
         p.starmap(minimize_phi_row_grad, [(phi_past[i, :].reshape(1, -1), observed_psis[i].reshape(1, -1), alphas, sigma[i, :].reshape(
             1, -1), observed_phi[i, :].reshape(1, -1), ns, m, i, True, shared_array_id) for i in range(phi_past.shape[0])])
         p.close()
         return np.ctypeslib.as_array(phi_next_shared_array)
 
 
-def alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_inits, eps, delta, max_iter, parallelized=False, nprocesses=1):
+def alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_inits, eps, delta, max_iter, parallelized=False, num_process=1):
     phi_past = phi_init
     alpha_pasts = alpha_inits
     n_pasts = n_inits
     L_past = compute_full_likelihood(
         phi_past, phi, psis, alpha_pasts, sigma, n_pasts, m)
     phi_next = minimize_phi_grad(
-        phi, psis, alpha_pasts, sigma, phi_past, n_pasts, m, parallelized, nprocesses)
+        phi, psis, alpha_pasts, sigma, phi_past, n_pasts, m, parallelized, num_process)
     alpha_nexts = np.zeros(alpha_pasts.shape)
     for i in range(alpha_pasts.shape[0]):
         alpha_nexts[i] = minimize_alpha_LS_helper(alpha_pasts[i].reshape(
@@ -241,7 +241,7 @@ def alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_ini
         phi_past, alpha_pasts, n_pasts, L_past = phi_next, alpha_nexts, n_nexts, L_next
 
         phi_next = minimize_phi_grad(
-            phi, psis, alpha_pasts, sigma, phi_past, n_pasts, m, parallelized, nprocesses)
+            phi, psis, alpha_pasts, sigma, phi_past, n_pasts, m, parallelized, num_process)
         alpha_nexts = np.zeros(alpha_pasts.shape)
         for i in range(alpha_pasts.shape[0]):
             alpha_nexts[i] = minimize_alpha_LS_helper(alpha_pasts[i].reshape(
@@ -258,12 +258,12 @@ def alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_ini
     return alpha_nexts, n_nexts, phi_next
 
 
-def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, uniform_init=False, parallelized=True, nprocesses=10):
+def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, uniform_init=False, parallelized=True, num_process=10):
     sigma += 1
     alpha_nexts, n_nexts, phi_hat = alternate_minimization(
-        phi, sigma, m, psis, eps, delta, max_iter, uniform_init, parallelized, nprocesses)
+        phi, sigma, m, psis, eps, delta, max_iter, uniform_init, parallelized, num_process)
     alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
-        phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts, eps, delta, max_iter, parallelized, nprocesses)
+        phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts, eps, delta, max_iter, parallelized, num_process)
 
     alpha_LS = np.zeros(alpha_nexts.shape)
     for i in range(alpha_nexts.shape[0]):
