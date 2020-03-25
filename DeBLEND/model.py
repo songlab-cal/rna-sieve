@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from bedlam.algo import find_mixtures
 
 
-class Model:
+class DeBlendModel:
     def __init__(self, observed_phi, observed_sigma, observed_m, labels=None):
         assert observed_phi.shape == observed_sigma.shape, 'Reference mean matrix and variance matrix must have the same dimensions'
         assert observed_m.shape[1] == observed_phi.shape[1], 'Number of cell types must be consistent with reference matrix'
@@ -26,7 +26,7 @@ class Model:
         return Results(self.observed_phi, self.observed_sigma, self.observed_m, self.labels, psis, labels, alphaLS)
 
 
-class Results:
+class DeBlendResults:
     def __init__(self, observed_phi, observed_sigma, observed_m, cell_type_labels, psis, bulk_labels, alphas):
         self.observed_phi = observed_phi
         self.observed_sigma = observed_sigma
