@@ -1,4 +1,4 @@
-# BEDLAM
+# DeBLEND
 
 This repo contains scripts for deconvolution of bulk cell samples via bulk RNA expression. For example usage, run the jupyter notebook called examples/example.ipynb.
 
