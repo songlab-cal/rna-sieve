@@ -58,4 +58,30 @@ class DeBLENDResults:
             ax.grid()
             ax.legend(bars, self.cell_type_labels, bbox_to_anchor=(-.15, 1))
 
+        if plot_type == "scatter":
+            assert isinstance(self.bulk_labels[0], int) or isinstance(self.bulk_labels[0], float), 'Bulk labels must be quantitative'
+
+            for i in range(self.alphas.shape[1]):
+                ax.scatter(self.bulk_labels, self.alphas[:, i], color=colors[i % len(colors)], label=self.cell_type_labels[i])
+
+            ax.set_ylabel("Proportion of bulk")
+            ax.set_ylim((0, 1))
+            ax.set_xlabel("Bulk Metric")
+            ax.grid()
+            ax.legend(bbox_to_anchor=(-.15, 1))
+
+        if plot_type == "stacked":
+            bottoms = np.zeros(self.alphas.shape[0])
+            for i in range(self.alphas.shape[1]):
+                ax.bar(np.arange(len(self.bulk_labels)), self.alphas[:, i], bottom=bottoms, edgecolor='white', width=1, label=self.cell_type_labels[i])
+                bottoms += self.alphas[:,i]
+
+            ax.set_ylabel("Proportion of bulk")
+            ax.set_ylim((0, 1))
+            ax.set_xlabel("Bulk label")
+            ax.set_xticks(range(self.alphas.shape[0]))
+            ax.set_xticklabels(self.bulk_labels)
+            ax.grid()
+            ax.legend(bbox_to_anchor=(-.15, 1))
+
         return ax
