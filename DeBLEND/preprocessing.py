@@ -1,6 +1,6 @@
 import numpy as np
 from collections import Counter
-from bedlam.model import Model
+from deblend.model import DeBLENDModel
 
 
 def trimmed_mean_mtx(M, frac):
@@ -46,4 +46,4 @@ def model_from_raw_counts(raw_counts, bulks,
     sigma = sigma[non_zero_idxs]
     psis = psis[non_zero_idxs]
 
-    return Model(phi, sigma, m, labels), psis
+    return DeBLENDModel(phi, sigma, m, labels), psis
