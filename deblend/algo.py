@@ -103,10 +103,10 @@ def minimize_alpha(alpha_prev, sigma, phi, psi, n):
     alpha_next = cp.Variable(alpha_prev.shape)
     alpha = np.copy(alpha_prev)
     try:
-        coef = n / np.clip(compute_mixture_sigma(alpha_prev,
+        coef = 1 / np.clip(compute_mixture_sigma(alpha_prev,
                                                  sigma, phi), CLIP_VALUE, None)
         prob = cp.Problem(cp.Minimize(
-            cp.sum(cp.multiply(coef, (phi@alpha_next.T - psi)**2))), [alpha_next >= 0])
+            cp.sum(cp.multiply(coef, (phi@alpha_next.T - psi / n)**2))), [alpha_next >= 0, cp.sum(alpha.next) == 1])
         prob.solve()
         alpha = np.clip(alpha_next.value, 0, None)
     except (cp.SolverError, TypeError) as e:
