@@ -29,7 +29,7 @@ def compute_full_likelihood(phi, observed_phi, observed_psis, alphas, sigma, ns,
                             sigma * (phi - observed_phi)**2)
     psi_likelihood = np.sum(ns / mixture_variance *
                             (phi @ alphas.T - observed_psis / ns)**2)
-    log_term = np.sum(np.log(mixture_variance / ns))
+    log_term = np.sum(ns * np.log(mixture_variance))
     return phi_likelihood + psi_likelihood + log_term
 
 
@@ -39,19 +39,18 @@ def compute_row_likelihood(phi_row, observed_phi_row, observed_psi_scalars, alph
     phi_likelihood = np.sum(m / sigma_row * (phi_row - observed_phi_row)**2)
     psi_likelihood = np.sum(ns / mixture_variance *
                             (phi_row @ alphas.T - observed_psi_scalars / ns)**2)
-    log_term = np.sum(np.log(mixture_variance / ns))
+    log_term = np.sum(ns * np.log(mixture_variance))
     return phi_likelihood + psi_likelihood + log_term
 
 # Updates (1)
 
 
 def update_n(phi, alpha, psi, sigma):
-    mixture_var = np.clip(compute_mixture_sigma(
-        alpha, sigma, phi), CLIP_VALUE, None)
-    mix_var_norm = np.clip(compute_weighted_norm(
-        phi @ alpha.T, 1 / mixture_var.T), CLIP_VALUE, None)
-    frac_norm = psi.shape[0] / (2 * mix_var_norm)
-    return frac_norm + np.sqrt(frac_norm**2 + compute_weighted_norm(psi, 1 / mixture_var) + mix_var_norm)
+    mixture_var = np.clip(compute_mixture_sigma(alpha, sigma, phi), CLIP_VALUE, None)
+    G = psi.shape[0]
+    psi_hat_term = np.sum(compute_weighted_norm(phi @ alpha.T, 1 / mixture_variance))
+    observed_psi_term = np.sum(compute_weighted_norm(psi, 1 / mixture_variance))
+    return np.max(np.roots([psi_hat_term, G, -observed_psi_term]))
 
 
 def minimize_phi_row(phi_prev, psi_scalars, observed_phi_row, sigma_row, alphas, ns, m, row_idx=None, parallelized=False, shared_array_id=None):
