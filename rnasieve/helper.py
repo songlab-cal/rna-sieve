@@ -10,8 +10,8 @@ CLIP_VALUE = 1e-10
 ALPHA_EPS = 1e-4
 ALPHA_MAX_ITER = 1
 
-# General Functions
 
+# General Functions
 
 def compute_mixture_sigma(alpha, sigma, phi):
     return (phi**2 + sigma) @ alpha.T - (phi @ alpha.T)**2

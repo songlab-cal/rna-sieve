@@ -8,8 +8,8 @@ import scipy.linalg
 from scipy.stats import norm
 from rnasieve.helper import compute_mixture_sigma, CLIP_VALUE
 
-# Confidence Interval Computation
 
+# Confidence Interval Computation
 
 def _partial_mixture_variance_alpha(phi, sigma, alpha):
     return sigma + phi**2 - 2 * phi * (phi @ alpha.T)
