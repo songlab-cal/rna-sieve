@@ -29,7 +29,7 @@ def compute_full_likelihood(phi, observed_phi, observed_psis, alphas, sigma, ns,
                             sigma * (phi - observed_phi)**2)
     psi_likelihood = np.sum(ns / mixture_variance *
                             (phi @ alphas.T - observed_psis / ns)**2)
-    log_term = np.sum(ns * np.log(mixture_variance))
+    log_term = np.sum(np.log(ns * mixture_variance))
     return phi_likelihood + psi_likelihood + log_term
 
 
@@ -39,7 +39,7 @@ def compute_row_likelihood(phi_row, observed_phi_row, observed_psi_scalars, alph
     phi_likelihood = np.sum(m / sigma_row * (phi_row - observed_phi_row)**2)
     psi_likelihood = np.sum(ns / mixture_variance *
                             (phi_row @ alphas.T - observed_psi_scalars / ns)**2)
-    log_term = np.sum(ns * np.log(mixture_variance))
+    log_term = np.sum(np.log(ns * mixture_variance))
     return phi_likelihood + psi_likelihood + log_term
 
 # Updates (1)
