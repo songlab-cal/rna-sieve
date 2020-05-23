@@ -23,7 +23,7 @@ class RNASieveModel:
             psis = psis * 1e6 / np.sum(psis, axis=0)
         non_zero_idxs = np.where(psis.any(axis=1))
         alpha_LS, n_hats, phi_hat = find_mixtures(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, psis[non_zero_idxs])
-        return RNASieveResults(self.observed_phi, self.observed_sigma, self.observed_m, self.labels, psis, labels, alpha_LS, n_hats, phi_hat)
+        return RNASieveResults(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, self.labels, psis[non_zero_idxs], labels, alpha_LS, n_hats, phi_hat)
 
 
 class RNASieveResults:
