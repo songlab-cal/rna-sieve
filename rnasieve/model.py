@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from deblend.algo import find_mixtures
+from rnasieve.algo import find_mixtures
 
 
-class DeBLENDModel:
+class RNASieveModel:
     def __init__(self, observed_phi, observed_sigma, observed_m, labels=None):
         assert observed_phi.shape == observed_sigma.shape, 'Reference mean matrix and variance matrix must have the same dimensions'
         assert observed_m.shape[1] == observed_phi.shape[1], 'Number of cell types must be consistent with reference matrix'
@@ -22,12 +22,12 @@ class DeBLENDModel:
         if normalization:
             psis = psis * 1e6 / np.sum(psis, axis=0)
         non_zero_idxs = np.where(psis.any(axis=1))
-        alphaLS = find_mixtures(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, psis[non_zero_idxs])
-        return DeBLENDResults(self.observed_phi, self.observed_sigma, self.observed_m, self.labels, psis, labels, alphaLS)
+        alpha_LS, n_hats, phi_hat = find_mixtures(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, psis[non_zero_idxs])
+        return RNASieveResults(self.observed_phi, self.observed_sigma, self.observed_m, self.labels, psis, labels, alpha_LS, n_hats, phi_hat)
 
 
-class DeBLENDResults:
-    def __init__(self, observed_phi, observed_sigma, observed_m, cell_type_labels, psis, bulk_labels, alphas):
+class RNASieveResults:
+    def __init__(self, observed_phi, observed_sigma, observed_m, cell_type_labels, psis, bulk_labels, alphas, n_hats, phi_hat):
         self.observed_phi = observed_phi
         self.observed_sigma = observed_sigma
         self.observed_m = observed_m
@@ -35,6 +35,8 @@ class DeBLENDResults:
         self.psis = psis
         self.bulk_labels = bulk_labels
         self.alphas = alphas
+        self.n_hats = n_hats
+        self.phi_hat = phi_hat
 
     def plot_proportions(self, ax, plot_type="bar"):
         plt.style.use('ggplot')

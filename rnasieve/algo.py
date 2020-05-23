@@ -256,6 +256,17 @@ def alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_ini
 
     return alpha_nexts, n_nexts, phi_next
 
+def compute_alpha_LS(alpha_hats, phi_hat, phi, sigma, psis):
+    alpha_LS = np.zeros(alpha_hats.shape)
+    for i in range(alpha_hats.shape[0]):
+        mixture_sigma_diag = np.diag(
+            1 / np.sqrt(compute_mixture_sigma(alpha_hats[i].reshape(1, -1), sigma, phi_hat)).ravel())
+        # note rcond parameter is set to silence a deprecation warning
+        alpha_LS_i = np.linalg.lstsq(
+            mixture_sigma_diag @ phi, mixture_sigma_diag @ psis[:, i].reshape(-1, 1), rcond=-1)[0].T
+        alpha_LS_i = np.clip(alpha_LS_i, 0, None)
+        alpha_LS[i] = alpha_LS_i / np.sum(alpha_LS_i)
+    return alpha_LS
 
 def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, uniform_init=False, parallelized=True, num_process=10):
     sigma += 1
@@ -263,15 +274,14 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
         phi, sigma, m, psis, eps, delta, max_iter, uniform_init, parallelized, num_process)
     alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
         phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts, eps, delta, max_iter, parallelized, num_process)
+    L_pre = compute_full_likelihood(phi_hat, phi, psis, alpha_nexts, sigma, n_nexts, m)
 
-    alpha_LS = np.zeros(alpha_nexts.shape)
-    for i in range(alpha_nexts.shape[0]):
-        mixture_sigma_diag = np.diag(
-            1 / np.sqrt(compute_mixture_sigma(alpha_nexts[i].reshape(1, -1), sigma, phi_hat)).ravel())
-        # note rcond parameter is set to silence a deprecation warning
-        alpha_LS_i = np.linalg.lstsq(
-            mixture_sigma_diag @ phi, mixture_sigma_diag @ psis[:, i].reshape(-1, 1), rcond=-1)[0].T
-        alpha_LS_i = np.clip(alpha_LS_i, 0, None)
-        alpha_LS[i] = alpha_LS_i / np.sum(alpha_LS_i)
+    alpha_LS = compute_alpha_LS(alpha_nexts, phi_hat, phi, sigma, psis)
+    L_LS = compute_full_likelihood(phi_hat, phi, psis, alpha_LS, sigma, n_nexts, m)
 
-    return alpha_LS
+    if L_LS < L_pre:
+        alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
+            phi, phi_hat, sigma, m, psis, alpha_LS, n_nexts, eps, delta, max_iter, parallelized, num_process)
+        alpha_LS = compute_alpha_LS(alpha_nexts, phi_hat, phi, sigma, psis)
+
+    return alpha_LS, n_nexts, phi_hat
