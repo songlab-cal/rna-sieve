@@ -49,8 +49,8 @@ def compute_row_likelihood(phi_row, observed_phi_row, observed_psi_scalars, alph
 def update_n(phi, alpha, psi, sigma):
     mixture_variance = np.clip(compute_mixture_sigma(alpha, sigma, phi), CLIP_VALUE, None)
     G = psi.shape[0]
-    psi_hat_term = np.sum(compute_weighted_norm(phi @ alpha.T, 1 / mixture_variance))
-    observed_psi_term = np.sum(compute_weighted_norm(psi, 1 / mixture_variance))
+    psi_hat_term = compute_weighted_norm(phi @ alpha.T, 1 / mixture_variance)
+    observed_psi_term = compute_weighted_norm(psi, 1 / mixture_variance)
     return np.max(np.roots([psi_hat_term, G, -observed_psi_term]))
 
 
