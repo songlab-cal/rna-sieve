@@ -27,14 +27,14 @@ class RNASieveModel:
 
 
 class RNASieveResults:
-    def __init__(self, observed_phi, observed_sigma, observed_m, cell_type_labels, psis, bulk_labels, alphas, n_hats, phi_hat):
+    def __init__(self, observed_phi, observed_sigma, observed_m, cell_type_labels, psis, bulk_labels, alpha_hats, n_hats, phi_hat):
         self.observed_phi = observed_phi
         self.observed_sigma = observed_sigma
         self.observed_m = observed_m
         self.cell_type_labels = cell_type_labels
         self.psis = psis
         self.bulk_labels = bulk_labels
-        self.alphas = alphas
+        self.alpha_hats = alpha_hats
         self.n_hats = n_hats
         self.phi_hat = phi_hat
 
@@ -44,18 +44,18 @@ class RNASieveResults:
 
         if plot_type == "bar":
             bars = []
-            bar_width = 0.8 / self.alphas.shape[1]
+            bar_width = 0.8 / self.alpha_hats.shape[1]
 
-            for i in range(self.alphas.shape[1]):
-                x_offset = (i - self.alphas.shape[1] / 2) * bar_width + bar_width / 2
-                for x, y in enumerate(self.alphas[:, i]):
+            for i in range(self.alpha_hats.shape[1]):
+                x_offset = (i - self.alpha_hats.shape[1] / 2) * bar_width + bar_width / 2
+                for x, y in enumerate(self.alpha_hats[:, i]):
                     bar = ax.bar(x + x_offset, y, width=bar_width * 0.9, color=colors[i % len(colors)])
                 bars.append(bar[0])
 
             ax.set_ylabel("Proportion of bulk")
             ax.set_ylim((0, 1))
             ax.set_xlabel("Bulk label")
-            ax.set_xticks(range(self.alphas.shape[0]))
+            ax.set_xticks(range(self.alpha_hats.shape[0]))
             ax.set_xticklabels(self.bulk_labels)
             ax.grid()
             ax.legend(bars, self.cell_type_labels, bbox_to_anchor=(-.15, 1))
@@ -63,8 +63,8 @@ class RNASieveResults:
         if plot_type == "scatter":
             assert isinstance(self.bulk_labels[0], int) or isinstance(self.bulk_labels[0], float), 'Bulk labels must be quantitative'
 
-            for i in range(self.alphas.shape[1]):
-                ax.scatter(self.bulk_labels, self.alphas[:, i], color=colors[i % len(colors)], label=self.cell_type_labels[i])
+            for i in range(self.alpha_hats.shape[1]):
+                ax.scatter(self.bulk_labels, self.alpha_hats[:, i], color=colors[i % len(colors)], label=self.cell_type_labels[i])
 
             ax.set_ylabel("Proportion of bulk")
             ax.set_ylim((0, 1))
@@ -73,15 +73,15 @@ class RNASieveResults:
             ax.legend(bbox_to_anchor=(-.15, 1))
 
         if plot_type == "stacked":
-            bottoms = np.zeros(self.alphas.shape[0])
-            for i in range(self.alphas.shape[1]):
-                ax.bar(np.arange(len(self.bulk_labels)), self.alphas[:, i], bottom=bottoms, edgecolor='white', width=1, label=self.cell_type_labels[i])
-                bottoms += self.alphas[:,i]
+            bottoms = np.zeros(self.alpha_hats.shape[0])
+            for i in range(self.alpha_hats.shape[1]):
+                ax.bar(np.arange(len(self.bulk_labels)), self.alpha_hats[:, i], bottom=bottoms, edgecolor='white', width=1, label=self.cell_type_labels[i])
+                bottoms += self.alpha_hats[:,i]
 
             ax.set_ylabel("Proportion of bulk")
             ax.set_ylim((0, 1))
             ax.set_xlabel("Bulk label")
-            ax.set_xticks(range(self.alphas.shape[0]))
+            ax.set_xticks(range(self.alpha_hats.shape[0]))
             ax.set_xticklabels(self.bulk_labels)
             ax.grid()
             ax.legend(bbox_to_anchor=(-.15, 1))

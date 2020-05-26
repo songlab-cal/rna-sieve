@@ -10,10 +10,36 @@ from multiprocessing import sharedctypes
 CLIP_VALUE = 1e-8
 
 # Parallelization Global shared arrays
+
 shared_dict = {}
 
-# General Functions
+# Filtering Functions
 
+def off_simplex_distances(means, variances, bulk):
+    max_means = np.max(means, axis=1).reshape(-1, 1)
+    min_means = np.min(means, axis=1).reshape(-1, 1)
+    max_variances = np.max(variances, axis=1).reshape(-1, 1)
+    below_min_distances = np.clip((min_means - bulk) / max_variances, 0, None)
+    above_max_distances = np.clip((bulk - max_means) / max_variances, 0, None)
+    return np.max(np.hstack((below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
+
+def off_simplex_filter(phi, sigma, psi, quantile):
+    naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
+    n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
+    n_opt = scopt.minimize(lambda n: np.mean(off_simplex_distances(phi, sigma, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    dists = off_simplex_distances(phi, sigma, psi / n_opt)
+    filtered_idxs = np.where(dists <= np.quantile(dists, quantile))[0]
+    return n, filtered_idxs
+
+def off_simplex_filter_absolute(phi, sigma, psis, threshold):
+    naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
+    n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
+    n_opt = scopt.minimize(lambda n: np.mean(off_simplex_distances(phi, sigma / n, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    dists = off_simplex_distances(phi, sigma / n_opt, psi / n_opt)[0]
+    filtered_idxs = np.where(dists <= threshold)
+    return n, filtered_idxs
+
+# General Functions
 
 def compute_mixture_sigma(alpha, sigma, phi):
     return (phi**2 + sigma) @ alpha.T - (phi @ alpha.T)**2
@@ -44,7 +70,6 @@ def compute_row_likelihood(phi_row, observed_phi_row, observed_psi_scalars, alph
     return phi_likelihood + psi_likelihood + log_term
 
 # Updates (1)
-
 
 def update_n(phi, alpha, psi, sigma):
     mixture_variance = np.clip(compute_mixture_sigma(alpha, sigma, phi), CLIP_VALUE, None)
@@ -179,7 +204,6 @@ def alternate_minimization(phi, sigma, m, psis, eps, delta, max_iter, uniform_in
 
 # Updates (2)
 
-
 def minimize_phi_row_grad(phi_past, observed_phi_row, alphas, ns, observed_psi_scalars, sigma_row, m, row_idx=None, parallelized=False, shared_array_id=None):
     bnds = tuple((0, None) for _ in range(phi_past.shape[1]))
     res = scopt.minimize(lambda phi_row: compute_row_likelihood(phi_row.reshape(1, -1), observed_phi_row,
@@ -290,9 +314,9 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
 # Confidence Interval Computation
 
 def partial_mixture_variance_alpha(phi, sigma, alpha):
-    return sigma + phi**2 - 2 * phi * phi @ alpha.T
+    return sigma + phi**2 - 2 * phi * (phi @ alpha.T)
 
-def partial_mixture_variance_phi(phi, alpha, m):
+def partial_mixture_variance_phi(phi, alpha):
     return 2 * np.tile(alpha, (phi.shape[0], 1)) * (phi - phi @ alpha.T)
 
 def partial_alpha_alpha(phi, sigma, alpha, n):
@@ -303,21 +327,21 @@ def partial_alpha_alpha(phi, sigma, alpha, n):
 def partial_phi_phi(phi, sigma, alpha, n, m):
     G, K = phi.shape
     mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
-    alpha_term = np.repeat(n * np.kron(alpha, alpha).reshape(K, K)[:, :, np.newaxis], G, axis=2)
-    partial_mv_phi = partial_mixture_variance_phi(phi, alpha, m)
+    alpha_term = np.repeat(n * np.kron(alpha, alpha).reshape(K, K)[:, :, np.newaxis], G, axis=2) / mixture_variance.reshape(1, 1, -1)
+    partial_mv_phi = partial_mixture_variance_phi(phi, alpha)
     phi_term = np.dstack([np.kron(partial_mv_phi[i], partial_mv_phi[i]).reshape(K, K) / (2 * mixture_variance[i]**2) for i in range(G)])
-    return scipy.linalg.block_diag(*[np.squeeze(subarr) for subarr in np.dsplit(alpha_term + phi_term, G)])
+    return scipy.linalg.block_diag(*[np.squeeze(subarr) for subarr in np.dsplit(alpha_term + phi_term, G)]) + np.diag((m / sigma).reshape(-1))
 
 def partial_alpha_phi(phi, sigma, alpha, n):
-    mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
     G, K = phi.shape
+    mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
     partial_mv_alpha = partial_mixture_variance_alpha(phi, sigma, alpha)
-    partial_mv_phi = partial_mixture_variance_phi(phi, alpha, m)
+    partial_mv_phi = partial_mixture_variance_phi(phi, alpha)
 
     @np.vectorize
     def partial_alpha_phi_helper(i, j):
         g, k = j // K, j % K
-        return n * alpha[0, k] * phi[g, i] / mixture_variance[g]**2 + partial_mv_alpha[g, i] * partial_mv_phi[g, k] / (2 * mixture_variance[g, 0]**2)
+        return n * alpha[0, k] * phi[g, i] / mixture_variance[g, 0] + partial_mv_alpha[g, i] * partial_mv_phi[g, k] / (2 * mixture_variance[g, 0]**2)
 
     return partial_alpha_phi_helper(*np.mgrid[0:K, 0:G*K])
 
@@ -329,12 +353,12 @@ def partial_n_n(phi, sigma, alpha, n):
 def partial_alpha_n(phi, sigma, alpha, n):
     mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
     partial_mv_alpha = partial_mixture_variance_alpha(phi, sigma, alpha)
-    return (phi / mixture_variance).T @ phi @ alpha.T + np.sum(partial_mv_alpha / mixture_variance) / (2 * n)
+    return (phi / mixture_variance).T @ (phi @ alpha.T) + np.sum(partial_mv_alpha / mixture_variance, axis=0).reshape(-1, 1) / (2 * n)
 
 def partial_n_phi(phi, sigma, alpha, n):
     mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
-    partial_mv_phi = partial_mixture_variance_phi(phi, alpha, m)
-    return (np.kron(phi @ alpha.T / mixture_variance, alpha) + partial_mv_phi / (2 * n * mixture_variance)).reshape(1, -1)
+    partial_mv_phi = partial_mixture_variance_phi(phi, alpha)
+    return (np.kron((phi @ alpha.T) / mixture_variance, alpha) + partial_mv_phi / (2 * n * mixture_variance)).reshape(1, -1)
 
 def inverse_fisher(phi, sigma, alpha, n, m):
     p_alpha_alpha = partial_alpha_alpha(phi, sigma, alpha, n)
@@ -351,4 +375,4 @@ def inverse_fisher(phi, sigma, alpha, n, m):
     ])
 
     inv_fisher = np.linalg.inv(fisher_info)
-    return ((inv_fisher + inv_fisher.T) / 2)[:alpha.shape[1], :alpha.shape[1]]
+    return ((inv_fisher + inv_fisher.T) / 2), fisher_info
