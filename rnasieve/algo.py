@@ -258,10 +258,11 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
 
     it = 0
     while L_LS < max(L_opt, L_pre) and it < max_iter:
-        alpha_opts = alpha_LS.copy()
-        n_opts = n_nexts.copy()
-        phi_opt = phi_hat.copy()
-        L_opt = L_LS
+        if L_LS < L_opt:
+            alpha_opts = alpha_LS.copy()
+            n_opts = n_nexts.copy()
+            phi_opt = phi_hat.copy()
+            L_opt = L_LS
 
         alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
             phi, phi_hat, sigma, m, psis, alpha_LS, n_nexts, eps, delta, max_iter, parallelized, num_process)
