@@ -1,7 +1,12 @@
 import numpy as np
+import scipy.optimize
+import scipy.stats
 from collections import Counter
+from functools import reduce
 from rnasieve.model import RNASieveModel
+from rnasieve.helper import CLIP_VALUE
 
+# Filtering Functions
 
 def trimmed_mean_mtx(M, frac):
     totals = M.sum(axis=0)
@@ -9,6 +14,127 @@ def trimmed_mean_mtx(M, frac):
     trim_idx = int(M.shape[1] * frac)
     return M[:, sorted_idxs[trim_idx:-trim_idx]]
 
+def off_simplex_distances(means, variances, bulk):
+    max_means = np.max(means, axis=1).reshape(-1, 1)
+    min_means = np.min(means, axis=1).reshape(-1, 1)
+    max_variances = np.max(variances, axis=1).reshape(-1, 1)
+    below_min_distances = np.clip((min_means - bulk) / max_variances, 0, None)
+    above_max_distances = np.clip((bulk - max_means) / max_variances, 0, None)
+    return np.max(np.hstack((below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
+
+def off_simplex_filter(phi, sigma, psi, quantile):
+    naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
+    n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
+    n_opt = scipy.optimize.minimize(lambda n: np.mean(off_simplex_distances(phi, sigma, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    dists = off_simplex_distances(phi, sigma, psi / n_opt)
+    filtered_idxs = np.where(dists <= np.quantile(dists, quantile))[0]
+    return n_opt, filtered_idxs
+
+def off_simplex_filter_absolute(phi, sigma, psi, threshold):
+    naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
+    n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
+    n_opt = scipy.optimize.minimize(lambda n: np.mean(off_simplex_distances(phi, sigma / n, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    dists = off_simplex_distances(phi, sigma / n_opt, psi / n_opt)[:, 0]
+    filtered_idxs = np.where(dists <= threshold)
+    return n_opt, filtered_idxs
+
+def adjust_variances(phi, sigma, psi, threshold):
+    naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
+    n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
+    n_opt = scipy.optimize.minimize(lambda n: np.mean(off_simplex_distances(phi, sigma / n, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    dists = off_simplex_distances(phi, sigma / n_opt, psi / n_opt)
+    dists = np.clip(dists, 1, None)
+    return threshold * sigma * dists
+
+# Empirical Protocol Filters
+# Filter genes by their distance from the median in units of median deviations for various summary statistics.
+# Individual thresholds are based on empirical trends in thirteen tissues of the Tabula Muris dataset.
+
+# FACS/Droplet Filtering Helper Functions
+
+def fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf, extra_ratio=0):
+    phi_max = np.max(phi, axis=1)
+    sigma_max = np.max(sigma, axis=1)
+    sigma_phi_ratios = np.max(sigma / np.clip(phi, CLIP_VALUE, None), axis=1)
+    psi_phi_ratios = np.min(psi / np.clip(phi, CLIP_VALUE, None), axis=1)
+
+    phi_max_median, phi_max_mad = np.median(phi_max), scipy.stats.median_absolute_deviation(phi_max, scale=1)
+    sigma_max_median, sigma_max_mad = np.median(sigma_max), scipy.stats.median_absolute_deviation(sigma_max, scale=1)
+    sp_ratios_median, sp_ratios_mad = np.median(sigma_phi_ratios), scipy.stats.median_absolute_deviation(sigma_phi_ratios, scale=1)
+    pp_ratios_median, pp_ratios_mad = np.median(psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1)
+
+    phi_max_non_zero_idxs = np.nonzero(phi_max)
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_plus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_minus))
+    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_plus <= sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_minus))
+    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_plus <= sigma_phi_ratios) & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_minus))
+    pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios) & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * (md_plus + extra_ratio)))
+
+    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs, phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+
+def compute_fd_threshold(phi, sigma, psi):
+    phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
+    sigma_phi_ratios = np.max(sigma[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+    psi_phi_ratios = np.min(psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+
+    sp_ratios_mean = np.mean(sigma_phi_ratios)
+    sp_ratios_median = np.median(sigma_phi_ratios)
+    md_plus = 0 if sp_ratios_mean / sp_ratios_median <= 15000 else 0.8
+
+    sigma_phi_q95 = np.quantile(sigma_phi_ratios, 0.95) / np.median(sigma_phi_ratios)
+    psi_phi_q90 = np.quantile(psi_phi_ratios, 0.9) / np.median(psi_phi_ratios)
+    psi_phi_q10 = np.quantile(psi_phi_ratios, 0.1) / np.median(psi_phi_ratios)
+    md_minus = 100 if sigma_phi_q95 >= 30 and psi_phi_q90 - psi_phi_q10 >= 3.75 else np.inf
+
+    pp_ratio_cov = np.std(psi_phi_ratios) / np.mean(psi_phi_ratios)
+    if pp_ratio_cov <= 20:
+        extra_ratio = 0
+    elif pp_ratio_cov <= 40:
+        extra_ratio = 0.5
+    else:
+        extra_ratio = 2
+
+    return md_plus, md_minus, extra_ratio
+
+def filter_facs_to_droplet(phi, sigma, psi):
+    md_plus, md_minus, extra_ratio = compute_fd_threshold(phi, sigma, psi)
+    return fd_filter(phi, sigma, psi, md_plus, md_minus, extra_ratio)
+
+def df_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
+    phi_max = np.max(phi, axis=1)
+    sigma_max = np.max(sigma, axis=1)
+    sigma_phi_ratios = np.max(sigma / np.clip(phi, CLIP_VALUE, None), axis=1)
+    psi_phi_ratios = np.min(psi / np.clip(phi, CLIP_VALUE, None), axis=1)
+
+    phi_max_median, phi_max_mad = np.median(phi_max), scipy.stats.median_absolute_deviation(phi_max, scale=1)
+    sigma_max_median, sigma_max_mad = np.median(sigma_max), scipy.stats.median_absolute_deviation(sigma_max, scale=1)
+    sp_ratios_median, sp_ratios_mad = np.median(sigma_phi_ratios), scipy.stats.median_absolute_deviation(sigma_phi_ratios, scale=1)
+    pp_ratios_median, pp_ratios_mad = np.median(psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1)
+
+    phi_max_non_zero_idxs = np.nonzero(phi_max)
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_plus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_minus))
+    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_minus <= sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_plus))
+    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_minus <= sigma_phi_ratios) & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_plus))
+    pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios) & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus))
+
+    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs, phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+
+def compute_df_threshold(phi, sigma, psi):
+    phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
+    psi_phi_ratios = np.min(psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+
+    pp_ratio_cov = np.std(psi_phi_ratios) / np.mean(psi_phi_ratios)
+    md_plus = 8 if pp_ratio_cov >= 5 else 5
+    return md_plus
+
+def filter_droplet_to_facs(phi, sigma, psi):
+    md_plus = compute_df_threshold(phi, sigma, psi)
+    return df_filter(phi, sigma, psi, md_plus, np.inf)
 
 # Takes in raw counts in the form of a dictionary { label : matrix } and a matrix of bulks
 # All matrices should be sorted by genes over the same set of genes
