@@ -52,7 +52,7 @@ def adjust_variances(phi, sigma, psi, threshold):
 
 # FACS/Droplet Filtering Helper Functions
 
-def fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf, extra_ratio=0):
+def fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
     phi_max = np.max(phi, axis=1)
     sigma_max = np.max(sigma, axis=1)
     sigma_phi_ratios = np.max(sigma / np.clip(phi, CLIP_VALUE, None), axis=1)
@@ -65,10 +65,10 @@ def fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf, extra_ratio=0):
 
     phi_max_non_zero_idxs = np.nonzero(phi_max)
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
-    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_plus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_minus))
-    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_plus <= sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_minus))
-    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_plus <= sigma_phi_ratios) & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_minus))
-    pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios) & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * (md_plus + extra_ratio)))
+    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_minus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_plus))
+    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_minus <= sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_plus))
+    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_minus <= sigma_phi_ratios) & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_plus))
+    pp_ratios_idxs = np.where(psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus)
 
     return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs, phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
 
@@ -76,31 +76,28 @@ def compute_fd_threshold(phi, sigma, psi):
     phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
-    sigma_phi_ratios = np.max(sigma[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
     psi_phi_ratios = np.min(psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+    pp_ratios_median, pp_ratios_mad, pp_ratios_skew = np.median(psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1), scipy.stats.skew(psi_phi_ratios)
 
-    sp_ratios_mean = np.mean(sigma_phi_ratios)
-    sp_ratios_median = np.median(sigma_phi_ratios)
-    md_plus = 0 if sp_ratios_mean / sp_ratios_median <= 15000 else 0.8
+    if pp_ratios_mad / pp_ratios_median < 0.55 and pp_ratios_skew < 105:
+        return 1
+    return 5
 
-    sigma_phi_q95 = np.quantile(sigma_phi_ratios, 0.95) / np.median(sigma_phi_ratios)
-    psi_phi_q90 = np.quantile(psi_phi_ratios, 0.9) / np.median(psi_phi_ratios)
-    psi_phi_q10 = np.quantile(psi_phi_ratios, 0.1) / np.median(psi_phi_ratios)
-    md_minus = 100 if sigma_phi_q95 >= 30 and psi_phi_q90 - psi_phi_q10 >= 3.75 else np.inf
+def compute_fd_max_iter(phi, sigma, psi):
+    phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
+    psi_phi_ratios = np.min(psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+    pp_ratios_median, pp_ratios_mad = np.median(psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1)
 
-    pp_ratio_cov = np.std(psi_phi_ratios) / np.mean(psi_phi_ratios)
-    if pp_ratio_cov <= 20:
-        extra_ratio = 0
-    elif pp_ratio_cov <= 40:
-        extra_ratio = 0.5
-    else:
-        extra_ratio = 2
-
-    return md_plus, md_minus, extra_ratio
+    if 0.52 < pp_ratios_mad / pp_ratios_median < 0.7 or .06 < np.quantile(psi_phi_ratios, 0.05) / pp_ratios_median < 0.18:
+        return 1
+    return 2
 
 def filter_facs_to_droplet(phi, sigma, psi):
-    md_plus, md_minus, extra_ratio = compute_fd_threshold(phi, sigma, psi)
-    return fd_filter(phi, sigma, psi, md_plus, md_minus, extra_ratio)
+    md_plus = compute_fd_threshold(phi, sigma, psi)
+    max_iter = compute_fd_max_iter(phi, sigma, psi)
+    return fd_filter(phi, sigma, psi, md_plus, 3), max_iter
 
 def df_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
     phi_max = np.max(phi, axis=1)
@@ -115,7 +112,7 @@ def df_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
 
     phi_max_non_zero_idxs = np.nonzero(phi_max)
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
-    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_plus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_minus))
+    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_minus <= phi_max) & (phi_max <= phi_max_median + phi_max_mad * md_plus))
     sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_minus <= sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_plus))
     sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_minus <= sigma_phi_ratios) & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_plus))
     pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios) & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus))
@@ -126,15 +123,30 @@ def compute_df_threshold(phi, sigma, psi):
     phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
+    sigma_phi_ratios = np.max(sigma[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+
+    sp_ratios_skew = scipy.stats.skew(sigma_phi_ratios)
+
+    if sp_ratios_skew <= 40:
+        return 4
+    elif sp_ratios_skew <= 60:
+        return 1
+    return 7
+
+def compute_df_max_iter(phi, sigma, psi):
+    phi_max_non_zero_idxs = np.nonzero(np.max(phi, axis=1))
+    psi_non_zero_idxs = np.nonzero(psi[:, 0])
+    non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
     psi_phi_ratios = np.min(psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
 
-    pp_ratio_cov = np.std(psi_phi_ratios) / np.mean(psi_phi_ratios)
-    md_plus = 8 if pp_ratio_cov >= 5 else 5
-    return md_plus
+    pp_ratios_left_tail = np.quantile(psi_phi_ratios, 0.05) / np.median(psi_phi_ratios)
+
+    return 1 if pp_ratios_left_tail >= 0.1 else 3
 
 def filter_droplet_to_facs(phi, sigma, psi):
     md_plus = compute_df_threshold(phi, sigma, psi)
-    return df_filter(phi, sigma, psi, md_plus, np.inf)
+    max_iter = compute_df_max_iter(phi, sigma, psi)
+    return df_filter(phi, sigma, psi, md_plus, np.inf), max_iter
 
 # Takes in raw counts in the form of a dictionary { label : matrix } and a matrix of bulks
 # All matrices should be sorted by genes over the same set of genes

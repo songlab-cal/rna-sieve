@@ -247,6 +247,11 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
     phi_opt = phi.copy()
     L_opt = L_init
 
+    alpha_proj_opts = alpha_inits.copy()
+    n_proj_opts = n_inits.copy()
+    phi_proj_opt = phi.copy()
+    L_proj_opt = L_init
+
     alpha_nexts, n_nexts, phi_hat = alternate_minimization(
         phi, sigma, m, psis, alpha_inits, n_inits, eps, delta, max_iter, parallelized, num_process)
     alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
@@ -257,12 +262,18 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
     L_LS = compute_full_likelihood(phi_hat, phi, psis, alpha_LS, sigma, n_nexts, m)
 
     it = 0
-    while L_LS < max(L_opt, L_pre) and it < max_iter:
-        if L_LS < L_opt:
-            alpha_opts = alpha_LS.copy()
+    while L_LS < max(L_proj_opt, L_pre) and it < max_iter:
+        if L_LS < L_proj_opt:
+            alpha_proj_opts = alpha_LS.copy()
+            n_proj_opts = n_nexts.copy()
+            phi_proj_opt = phi_hat.copy()
+            L_proj_opt = L_LS
+
+        if L_pre < L_opt:
+            alpha_opts = alpha_nexts.copy()
             n_opts = n_nexts.copy()
             phi_opt = phi_hat.copy()
-            L_opt = L_LS
+            L_opt = L_pre
 
         alpha_nexts, n_nexts, phi_hat = alternate_gradient_descent(
             phi, phi_hat, sigma, m, psis, alpha_LS, n_nexts, eps, delta, max_iter, parallelized, num_process)
@@ -273,4 +284,10 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
 
         it += 1
 
-    return alpha_opts, n_opts, phi_opt
+    if L_proj_opt < L_opt:
+        alpha_opts = alpha_proj_opts.copy()
+        n_opts = n_proj_opts.copy()
+        phi_opt = phi_proj_opt.copy()
+        L_opt = L_proj_opt
+
+    return (alpha_proj_opts, n_proj_opts, phi_proj_opt), (alpha_opts, n_opts, phi_opt)
