@@ -14,13 +14,11 @@ class RNASieveModel:
         self.observed_m = observed_m
         self.labels = labels if labels is not None else list(range(self.observed_phi.shape[1]))
 
-    def predict(self, psis, labels=None, normalization=True):
+    def predict(self, psis, labels=None):
         assert psis.shape[0] == self.observed_phi.shape[0], 'Bulks must have the same number of genes as the reference matrix'
         assert labels is None or len(labels) == psis.shape[1], 'Labels must match bulk matrix dimension'
 
         labels = labels if labels is not None else list(range(psis.shape[1]))
-        if normalization:
-            psis = psis * 1e6 / np.sum(psis, axis=0)
         non_zero_idxs = np.where(psis.any(axis=1))
         alpha_LS, n_hats, phi_hat = find_mixtures(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, psis[non_zero_idxs])
         return RNASieveResults(self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, self.labels, psis[non_zero_idxs], labels, alpha_LS, n_hats, phi_hat)
