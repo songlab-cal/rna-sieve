@@ -151,7 +151,7 @@ def trimmed_mean_mtx(M, frac):
 # Takes in raw counts in the form of a dictionary { label : matrix } and a matrix of bulks
 # All matrices should be sorted by genes over the same set of genes
 def model_from_raw_counts(raw_counts, bulks,
-                          trim_percent=0.02, gene_thresh=0.2, normalization=False):
+                          trim_percent=0.02, gene_thresh=0.2, normalization=True):
     g = bulks.shape[0]
     m = []
     labels = sorted(raw_counts.keys())
