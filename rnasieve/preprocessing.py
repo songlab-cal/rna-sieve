@@ -167,6 +167,7 @@ def _compute_fd_max_iter(phi, sigma, psi):
 
 
 def filter_facs_to_droplet(phi, sigma, psi):
+    """Given a FACS reference, filter genes suitably to deconvolve a droplet bulk."""
     md_plus = _compute_fd_threshold(phi, sigma, psi)
     max_iter = _compute_fd_max_iter(phi, sigma, psi)
     return _fd_filter(phi, sigma, psi, md_plus, 3), max_iter
@@ -268,6 +269,7 @@ def _compute_df_max_iter(phi, sigma, psi):
 
 
 def filter_droplet_to_facs(phi, sigma, psi):
+    """Given a droplet reference, filter genes suitably to deconvolve a FACS bulk."""
     md_plus = _compute_df_threshold(phi, sigma, psi)
     max_iter = _compute_df_max_iter(phi, sigma, psi)
     return _df_filter(phi, sigma, psi, md_plus, np.inf), max_iter
@@ -279,16 +281,17 @@ def _trimmed_mean_mtx(M, frac):
     trim_idx = int(M.shape[1] * frac)
     return M[:, sorted_idxs[trim_idx:-trim_idx]]
 
-# Takes in raw counts in the form of a dictionary { label : matrix } and a matrix of bulks
-# All matrices should be sorted by genes over the same set of genes
-
-
 def model_from_raw_counts(
         raw_counts,
         bulks,
         trim_percent=0.02,
         gene_thresh=0.2,
         normalization=True):
+    """Given raw counts in the form of a dictionary { label : matrix } and a
+    matrix of bulks, produce a RNASieveModel and corresponding psis.
+
+    Matrices should be sorted by genes over the same set of genes.
+    """
     g = bulks.shape[0]
     m = []
     labels = sorted(raw_counts.keys())

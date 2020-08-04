@@ -382,6 +382,9 @@ def _compute_alpha_LS(alpha_hats, phi_hat, phi, sigma, psis):
 
 def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10,
                   uniform_init=False, parallelized=True, num_process=10):
+    """Infers alpha (mixture proportion), n (bulk cell count), and phi (mean matrix)
+    given observed phi (mean matrix), sigma (variance matrix), m from a reference set,
+    and psis, the bulks being deconvolved."""
     # Increment sigma by one to reduce numerical instability and zero inflation
     sigma += 1
     if uniform_init:
