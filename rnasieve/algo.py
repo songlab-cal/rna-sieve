@@ -140,8 +140,16 @@ def _alternate_minimization(
         num_process=1):
     L_past = compute_full_likelihood(
         phi, phi, psis, alpha_inits, sigma, n_inits, m)
-    phi_next = _minimize_phi(phi, psis, phi, sigma,
-                             alpha_inits, n_inits, m, parallelized, num_process)
+    phi_next = _minimize_phi(
+        phi,
+        psis,
+        phi,
+        sigma,
+        alpha_inits,
+        n_inits,
+        m,
+        parallelized,
+        num_process)
     alpha_nexts = np.zeros(alpha_inits.shape)
     for i in range(alpha_nexts.shape[0]):
         alpha_nexts[i] = _minimize_alpha_LS_helper(alpha_inits[i].reshape(
@@ -162,8 +170,13 @@ def _alternate_minimization(
     n_pasts = n_inits.copy()
 
     it = 0
-    while (np.max(np.linalg.norm(alpha_nexts - alpha_pasts, ord=np.inf, axis=1)) > eps
-            and it < max_iter and L_next + delta < L_past):
+    while (
+            np.max(
+                np.linalg.norm(
+                    alpha_nexts - alpha_pasts,
+                    ord=np.inf,
+                    axis=1)) > eps and it < max_iter and L_next +
+            delta < L_past):
         phi_past, alpha_pasts, n_pasts, L_past = phi_next, alpha_nexts, n_nexts, L_next
 
         phi_next = _minimize_phi(phi_past, psis, phi, sigma, alpha_pasts,
@@ -171,8 +184,9 @@ def _alternate_minimization(
         alpha_nexts = np.zeros(alpha_pasts.shape)
         for i in range(alpha_nexts.shape[0]):
             alpha_nexts[i] = _minimize_alpha_LS_helper(alpha_pasts[i].reshape(1, -1),
-                                                       sigma, phi_next, psis[:, i].reshape(
-                                                           -1, 1), n_pasts[i],
+                                                       sigma, phi_next,
+                                                       psis[:, i].reshape(-1, 1),
+                                                       n_pasts[i],
                                                        ALPHA_EPS, ALPHA_MAX_ITER)
         n_nexts = np.zeros(n_pasts.shape)
         for i in range(n_nexts.shape[0]):
@@ -188,13 +202,30 @@ def _alternate_minimization(
 # Updates (2)
 
 
-def _minimize_phi_row_grad(phi_past, observed_phi_row, alphas, ns, observed_psi_scalars,
-                           sigma_row, m, row_idx=None, parallelized=False, shared_array_id=None):
+def _minimize_phi_row_grad(
+        phi_past,
+        observed_phi_row,
+        alphas,
+        ns,
+        observed_psi_scalars,
+        sigma_row,
+        m,
+        row_idx=None,
+        parallelized=False,
+        shared_array_id=None):
     bnds = tuple((0, None) for _ in range(phi_past.shape[1]))
-    res = scipy.optimize.minimize(lambda phi_row:
-                                  compute_row_likelihood(phi_row.reshape(1, -1), observed_phi_row,
-                                                         observed_psi_scalars, alphas, sigma_row, ns, m), phi_past,
-                                  method='SLSQP', bounds=bnds)
+    res = scipy.optimize.minimize(
+        lambda phi_row: compute_row_likelihood(
+            phi_row.reshape(1, -1),
+            observed_phi_row,
+            observed_psi_scalars,
+            alphas,
+            sigma_row,
+            ns,
+            m),
+        phi_past,
+        method='SLSQP',
+        bounds=bnds)
     phi_row_clipped = np.clip(res.x.reshape(1, -1), 0., None)
     phi_row_clipped[phi_row_clipped <= CLIP_VALUE] = 0.
 
@@ -205,13 +236,27 @@ def _minimize_phi_row_grad(phi_past, observed_phi_row, alphas, ns, observed_psi_
     return phi_row_clipped
 
 
-def _minimize_phi_grad(phi_past, observed_phi, alphas, ns, observed_psis, sigma, m,
-                       parallelized=False, num_process=1):
+def _minimize_phi_grad(
+        phi_past,
+        observed_phi,
+        alphas,
+        ns,
+        observed_psis,
+        sigma,
+        m,
+        parallelized=False,
+        num_process=1):
     if not parallelized:
         phi_next = np.empty((0, phi_past.shape[1]), dtype=np.float64)
         for i in range(phi_past.shape[0]):
-            phi_next = np.vstack((phi_next, _minimize_phi_row_grad(phi_past[i, :].reshape(
-                1, -1), observed_phi[i, :].reshape(1, -1), alphas, ns, observed_psis[i].reshape(1, -1), sigma[i, :].reshape(1, -1), m)))
+            phi_next = np.vstack((phi_next, _minimize_phi_row_grad(
+                phi_past[i, :].reshape(1, -1),
+                observed_phi[i, :].reshape(1, -1),
+                alphas,
+                ns,
+                observed_psis[i].reshape(1, -1),
+                sigma[i, :].reshape(1, -1),
+                m)))
         return phi_next
     else:
         phi_next = np.ctypeslib.as_ctypes(np.zeros(phi_past.shape))
@@ -220,25 +265,59 @@ def _minimize_phi_grad(phi_past, observed_phi, alphas, ns, observed_psis, sigma,
         shared_array_id = "PHI_GRAD"
         shared_dict[shared_array_id] = phi_next_shared_array
         p = Pool(processes=num_process)
-        p.starmap(_minimize_phi_row_grad, [(phi_past[i, :].reshape(1, -1), observed_phi[i, :].reshape(
-            1, -1), alphas, ns, observed_psis[i].reshape(1, -1), sigma[i, :].reshape(1, -1), m, i, True, shared_array_id) for i in range(phi_past.shape[0])])
+        p.starmap(_minimize_phi_row_grad, [
+            (phi_past[i, :].reshape(1, -1),
+             observed_phi[i, :].reshape(1, -1),
+             alphas,
+             ns,
+             observed_psis[i].reshape(1, -1),
+             sigma[i, :].reshape(1, -1),
+             m,
+             i,
+             True,
+             shared_array_id) for i in range(phi_past.shape[0])])
         p.close()
         return np.ctypeslib.as_array(phi_next_shared_array)
 
 
-def _alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits,
-                                n_inits, eps, delta, max_iter, parallelized=False, num_process=1):
+def _alternate_gradient_descent(
+        phi,
+        phi_init,
+        sigma,
+        m,
+        psis,
+        alpha_inits,
+        n_inits,
+        eps,
+        delta,
+        max_iter,
+        parallelized=False,
+        num_process=1):
     phi_past = phi_init
     alpha_pasts = alpha_inits
     n_pasts = n_inits
     L_past = compute_full_likelihood(
         phi_past, phi, psis, alpha_pasts, sigma, n_pasts, m)
     phi_next = _minimize_phi_grad(
-        phi_past, phi, alpha_pasts, n_pasts, psis, sigma, m, parallelized, num_process)
+        phi_past,
+        phi,
+        alpha_pasts,
+        n_pasts,
+        psis,
+        sigma,
+        m,
+        parallelized,
+        num_process)
     alpha_nexts = np.zeros(alpha_pasts.shape)
     for i in range(alpha_pasts.shape[0]):
-        alpha_nexts[i] = _minimize_alpha_LS_helper(alpha_pasts[i].reshape(
-            1, -1), sigma, phi_next, psis[:, i].reshape(-1, 1), n_pasts[i], ALPHA_EPS, ALPHA_MAX_ITER)
+        alpha_nexts[i] = _minimize_alpha_LS_helper(
+            alpha_pasts[i].reshape(1, -1),
+            sigma,
+            phi_next,
+            psis[:, i].reshape(-1, 1),
+            n_pasts[i],
+            ALPHA_EPS,
+            ALPHA_MAX_ITER)
     n_nexts = np.zeros(n_pasts.shape)
     for i in range(n_nexts.shape[0]):
         n_nexts[i] = _update_n(phi_next, alpha_nexts[i].reshape(
@@ -255,11 +334,25 @@ def _alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits,
         phi_past, alpha_pasts, n_pasts, L_past = phi_next, alpha_nexts, n_nexts, L_next
 
         phi_next = _minimize_phi_grad(
-            phi_past, phi, alpha_pasts, n_pasts, psis, sigma, m, parallelized, num_process)
+            phi_past,
+            phi,
+            alpha_pasts,
+            n_pasts,
+            psis,
+            sigma,
+            m,
+            parallelized,
+            num_process)
         alpha_nexts = np.zeros(alpha_pasts.shape)
         for i in range(alpha_pasts.shape[0]):
-            alpha_nexts[i] = _minimize_alpha_LS_helper(alpha_pasts[i].reshape(
-                1, -1), sigma, phi_next, psis[:, i].reshape(-1, 1), n_pasts[i], ALPHA_EPS, ALPHA_MAX_ITER)
+            alpha_nexts[i] = _minimize_alpha_LS_helper(
+                alpha_pasts[i].reshape(1, -1),
+                sigma,
+                phi_next,
+                psis[:, i].reshape(-1, 1),
+                n_pasts[i],
+                ALPHA_EPS,
+                ALPHA_MAX_ITER)
         n_nexts = np.zeros(n_pasts.shape)
         for i in range(n_nexts.shape[0]):
             n_nexts[i] = _update_n(phi_next, alpha_nexts[i].reshape(
@@ -276,10 +369,12 @@ def _compute_alpha_LS(alpha_hats, phi_hat, phi, sigma, psis):
     alpha_LS = np.zeros(alpha_hats.shape)
     for i in range(alpha_hats.shape[0]):
         mixture_sigma_diag = np.diag(
-            1 / np.sqrt(compute_mixture_sigma(alpha_hats[i].reshape(1, -1), sigma, phi_hat)).ravel())
+            1 / np.sqrt(compute_mixture_sigma(alpha_hats[i].reshape(1, -1),
+                                              sigma, phi_hat)).ravel())
         # Note: rcond parameter is set to silence a deprecation warning
         alpha_LS_i = np.linalg.lstsq(
-            mixture_sigma_diag @ phi, mixture_sigma_diag @ psis[:, i].reshape(-1, 1), rcond=-1)[0].T
+            mixture_sigma_diag @ phi, mixture_sigma_diag @ psis[:, i].reshape(-1, 1),
+            rcond=-1)[0].T
         alpha_LS_i = np.clip(alpha_LS_i, 0, None)
         alpha_LS[i] = alpha_LS_i / np.sum(alpha_LS_i)
     return alpha_LS
@@ -311,9 +406,11 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10,
     L_proj_opt = L_init
 
     alpha_nexts, n_nexts, phi_hat = _alternate_minimization(
-        phi, sigma, m, psis, alpha_inits, n_inits, eps, delta, max_iter, parallelized, num_process)
+        phi, sigma, m, psis, alpha_inits, n_inits,
+        eps, delta, max_iter, parallelized, num_process)
     alpha_nexts, n_nexts, phi_hat = _alternate_gradient_descent(
-        phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts, eps, delta, max_iter, parallelized, num_process)
+        phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts,
+        eps, delta, max_iter, parallelized, num_process)
     L_pre = compute_full_likelihood(
         phi_hat, phi, psis, alpha_nexts, sigma, n_nexts, m)
 
@@ -336,7 +433,8 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10,
             L_opt = L_pre
 
         alpha_nexts, n_nexts, phi_hat = _alternate_gradient_descent(
-            phi, phi_hat, sigma, m, psis, alpha_LS, n_nexts, eps, delta, max_iter, parallelized, num_process)
+            phi, phi_hat, sigma, m, psis, alpha_LS, n_nexts,
+            eps, delta, max_iter, parallelized, num_process)
         L_pre = compute_full_likelihood(
             phi_hat, phi, psis, alpha_nexts, sigma, n_nexts, m)
 

@@ -15,8 +15,8 @@ def _off_simplex_distances(means, variances, bulk):
     max_variances = np.max(variances, axis=1).reshape(-1, 1)
     below_min_distances = np.clip((min_means - bulk) / max_variances, 0, None)
     above_max_distances = np.clip((bulk - max_means) / max_variances, 0, None)
-    return np.max(
-        np.hstack((below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
+    return np.max(np.hstack(
+        (below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
 
 
 def off_simplex_filter(phi, sigma, psi, quantile):
@@ -32,8 +32,17 @@ def off_simplex_filter(phi, sigma, psi, quantile):
 def off_simplex_filter_absolute(phi, sigma, psi, threshold):
     naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
     n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
-    n_opt = scipy.optimize.minimize(lambda n: np.mean(_off_simplex_distances(
-        phi, sigma / n, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    n_opt = scipy.optimize.minimize(
+        lambda n: np.mean(
+            _off_simplex_distances(
+                phi,
+                sigma / n,
+                psi / n)),
+        n_init,
+        method='SLSQP',
+        bounds=[
+            (0,
+             None)]).x
     dists = _off_simplex_distances(phi, sigma / n_opt, psi / n_opt)[:, 0]
     filtered_idxs = np.where(dists <= threshold)
     return n_opt, filtered_idxs
@@ -42,14 +51,24 @@ def off_simplex_filter_absolute(phi, sigma, psi, threshold):
 def adjust_variances(phi, sigma, psi, threshold):
     naive_LS = np.clip(np.linalg.lstsq(phi, psi, rcond=-1)[0], 0, None)
     n_init = np.linalg.norm(naive_LS, ord=1, axis=0)
-    n_opt = scipy.optimize.minimize(lambda n: np.mean(_off_simplex_distances(
-        phi, sigma / n, psi / n)), n_init, method='SLSQP', bounds=[(0, None)]).x
+    n_opt = scipy.optimize.minimize(
+        lambda n: np.mean(
+            _off_simplex_distances(
+                phi,
+                sigma / n,
+                psi / n)),
+        n_init,
+        method='SLSQP',
+        bounds=[
+            (0,
+             None)]).x
     dists = _off_simplex_distances(phi, sigma / n_opt, psi / n_opt)
     dists = np.clip(dists, 1, None)
     return threshold * sigma * dists
 
 # Empirical Protocol Filters
-# Filter genes by their distance from the median in units of median deviations for various summary statistics.
+# Filter genes by their distance from the median in units of
+# median deviations for various summary statistics.
 # Individual thresholds are based on empirical trends in thirteen tissues
 # of the Tabula Muris dataset.
 
@@ -73,17 +92,38 @@ def _fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
 
     phi_max_non_zero_idxs = np.nonzero(phi_max)
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
-    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_minus <= phi_max)
-                            & (phi_max <= phi_max_median + phi_max_mad * md_plus))
-    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_minus <=
-                               sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_plus))
-    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_minus <= sigma_phi_ratios)
-                              & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_plus))
+    phi_max_idxs = np.where(
+        (phi_max_median -
+         phi_max_mad *
+         md_minus <= phi_max) & (
+            phi_max <= phi_max_median +
+            phi_max_mad *
+            md_plus))
+    sigma_max_idxs = np.where(
+        (sigma_max_median -
+         sigma_max_mad *
+         md_minus <= sigma_max) & (
+            sigma_max <= sigma_max_median +
+            sigma_max_mad *
+            md_plus))
+    sp_ratios_idxs = np.where(
+        (sp_ratios_median -
+         sp_ratios_mad *
+         md_minus <= sigma_phi_ratios) & (
+            sigma_phi_ratios <= sp_ratios_median +
+            sp_ratios_mad *
+            md_plus))
     pp_ratios_idxs = np.where(
         psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus)
 
-    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs,
-                                   phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+    return reduce(
+        np.intersect1d,
+        (phi_max_non_zero_idxs,
+         psi_non_zero_idxs,
+         phi_max_idxs,
+         sigma_max_idxs,
+         sp_ratios_idxs,
+         pp_ratios_idxs))
 
 
 def _compute_fd_threshold(phi, sigma, psi):
@@ -91,9 +131,15 @@ def _compute_fd_threshold(phi, sigma, psi):
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
     psi_phi_ratios = np.min(
-        psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+        psi[non_zero_idxs] /
+        np.clip(
+            phi[non_zero_idxs],
+            CLIP_VALUE,
+            None),
+        axis=1)
     pp_ratios_median, pp_ratios_mad, pp_ratios_skew = np.median(
-        psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1), scipy.stats.skew(psi_phi_ratios)
+        psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1),
+    scipy.stats.skew(psi_phi_ratios)
 
     if pp_ratios_mad / pp_ratios_median < 0.55 and pp_ratios_skew < 105:
         return 1
@@ -105,7 +151,12 @@ def _compute_fd_max_iter(phi, sigma, psi):
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
     psi_phi_ratios = np.min(
-        psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+        psi[non_zero_idxs] /
+        np.clip(
+            phi[non_zero_idxs],
+            CLIP_VALUE,
+            None),
+        axis=1)
     pp_ratios_median, pp_ratios_mad = np.median(
         psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1)
 
@@ -138,17 +189,43 @@ def _df_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
 
     phi_max_non_zero_idxs = np.nonzero(phi_max)
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
-    phi_max_idxs = np.where((phi_max_median - phi_max_mad * md_minus <= phi_max)
-                            & (phi_max <= phi_max_median + phi_max_mad * md_plus))
-    sigma_max_idxs = np.where((sigma_max_median - sigma_max_mad * md_minus <=
-                               sigma_max) & (sigma_max <= sigma_max_median + sigma_max_mad * md_plus))
-    sp_ratios_idxs = np.where((sp_ratios_median - sp_ratios_mad * md_minus <= sigma_phi_ratios)
-                              & (sigma_phi_ratios <= sp_ratios_median + sp_ratios_mad * md_plus))
-    pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios)
-                              & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus))
+    phi_max_idxs = np.where(
+        (phi_max_median -
+         phi_max_mad *
+         md_minus <= phi_max) & (
+            phi_max <= phi_max_median +
+            phi_max_mad *
+            md_plus))
+    sigma_max_idxs = np.where(
+        (sigma_max_median -
+         sigma_max_mad *
+         md_minus <= sigma_max) & (
+            sigma_max <= sigma_max_median +
+            sigma_max_mad *
+            md_plus))
+    sp_ratios_idxs = np.where(
+        (sp_ratios_median -
+         sp_ratios_mad *
+         md_minus <= sigma_phi_ratios) & (
+            sigma_phi_ratios <= sp_ratios_median +
+            sp_ratios_mad *
+            md_plus))
+    pp_ratios_idxs = np.where(
+        (pp_ratios_median -
+         pp_ratios_mad *
+         md_minus <= psi_phi_ratios) & (
+            psi_phi_ratios <= pp_ratios_median +
+            pp_ratios_mad *
+            md_plus))
 
-    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs,
-                                   phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+    return reduce(
+        np.intersect1d,
+        (phi_max_non_zero_idxs,
+         psi_non_zero_idxs,
+         phi_max_idxs,
+         sigma_max_idxs,
+         sp_ratios_idxs,
+         pp_ratios_idxs))
 
 
 def _compute_df_threshold(phi, sigma, psi):
@@ -156,7 +233,12 @@ def _compute_df_threshold(phi, sigma, psi):
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
     sigma_phi_ratios = np.max(
-        sigma[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+        sigma[non_zero_idxs] /
+        np.clip(
+            phi[non_zero_idxs],
+            CLIP_VALUE,
+            None),
+        axis=1)
 
     sp_ratios_skew = scipy.stats.skew(sigma_phi_ratios)
 
@@ -172,7 +254,12 @@ def _compute_df_max_iter(phi, sigma, psi):
     psi_non_zero_idxs = np.nonzero(psi[:, 0])
     non_zero_idxs = np.intersect1d(phi_max_non_zero_idxs, psi_non_zero_idxs)
     psi_phi_ratios = np.min(
-        psi[non_zero_idxs] / np.clip(phi[non_zero_idxs], CLIP_VALUE, None), axis=1)
+        psi[non_zero_idxs] /
+        np.clip(
+            phi[non_zero_idxs],
+            CLIP_VALUE,
+            None),
+        axis=1)
 
     pp_ratios_left_tail = np.quantile(
         psi_phi_ratios, 0.05) / np.median(psi_phi_ratios)
@@ -196,8 +283,12 @@ def _trimmed_mean_mtx(M, frac):
 # All matrices should be sorted by genes over the same set of genes
 
 
-def model_from_raw_counts(raw_counts, bulks,
-                          trim_percent=0.02, gene_thresh=0.2, normalization=True):
+def model_from_raw_counts(
+        raw_counts,
+        bulks,
+        trim_percent=0.02,
+        gene_thresh=0.2,
+        normalization=True):
     g = bulks.shape[0]
     m = []
     labels = sorted(raw_counts.keys())
