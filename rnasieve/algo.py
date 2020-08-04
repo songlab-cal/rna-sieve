@@ -118,7 +118,8 @@ def _minimize_alpha_LS_helper(alpha_prev, sigma, phi, psi, n, eps, max_iter):
     alpha_last = alpha_prev
     alpha_cur = _minimize_alpha(alpha_prev, sigma, phi, psi, n)
     it = 0
-    while np.linalg.norm(alpha_cur - alpha_last, ord=2) > eps and it < max_iter:
+    while np.linalg.norm(alpha_cur - alpha_last,
+                         ord=2) > eps and it < max_iter:
         alpha_cur, alpha_last = _minimize_alpha(
             alpha_cur, sigma, phi, psi, n), alpha_cur
         it += 1
@@ -225,7 +226,8 @@ def _minimize_phi_grad(phi_past, observed_phi, alphas, ns, observed_psis, sigma,
         return np.ctypeslib.as_array(phi_next_shared_array)
 
 
-def _alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_inits, eps, delta, max_iter, parallelized=False, num_process=1):
+def _alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits,
+                                n_inits, eps, delta, max_iter, parallelized=False, num_process=1):
     phi_past = phi_init
     alpha_pasts = alpha_inits
     n_pasts = n_inits
@@ -248,7 +250,8 @@ def _alternate_gradient_descent(phi, phi_init, sigma, m, psis, alpha_inits, n_in
         alpha_nexts = alpha_pasts
 
     it = 0
-    while np.max(np.linalg.norm(alpha_nexts - alpha_pasts, ord=np.inf, axis=1)) > eps and it < max_iter:
+    while np.max(np.linalg.norm(alpha_nexts - alpha_pasts,
+                                ord=np.inf, axis=1)) > eps and it < max_iter:
         phi_past, alpha_pasts, n_pasts, L_past = phi_next, alpha_nexts, n_nexts, L_next
 
         phi_next = _minimize_phi_grad(
@@ -282,7 +285,8 @@ def _compute_alpha_LS(alpha_hats, phi_hat, phi, sigma, psis):
     return alpha_LS
 
 
-def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, uniform_init=False, parallelized=True, num_process=10):
+def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10,
+                  uniform_init=False, parallelized=True, num_process=10):
     # Increment sigma by one to reduce numerical instability and zero inflation
     sigma += 1
     if uniform_init:
@@ -348,4 +352,5 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10, unifor
         phi_opt = phi_proj_opt.copy()
         L_opt = L_proj_opt
 
-    return (alpha_proj_opts, n_proj_opts, phi_proj_opt), (alpha_opts, n_opts, phi_opt)
+    return (alpha_proj_opts, n_proj_opts,
+            phi_proj_opt), (alpha_opts, n_opts, phi_opt)

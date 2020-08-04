@@ -17,7 +17,8 @@ def compute_weighted_norm(vec, weights, p=2):
     return np.sum(vec**p * weights)
 
 
-def compute_full_likelihood(phi, observed_phi, observed_psis, alphas, sigma, ns, m):
+def compute_full_likelihood(
+        phi, observed_phi, observed_psis, alphas, sigma, ns, m):
     mixture_variance = np.clip(compute_mixture_sigma(
         alphas, sigma, phi), CLIP_VALUE, None)
     phi_likelihood = np.sum(np.tile(m, (len(phi), 1)) /
@@ -28,7 +29,8 @@ def compute_full_likelihood(phi, observed_phi, observed_psis, alphas, sigma, ns,
     return phi_likelihood + psi_likelihood + log_term
 
 
-def compute_row_likelihood(phi_row, observed_phi_row, observed_psi_scalars, alphas, sigma_row, ns, m):
+def compute_row_likelihood(phi_row, observed_phi_row,
+                           observed_psi_scalars, alphas, sigma_row, ns, m):
     mixture_variance = np.clip(compute_mixture_sigma(
         alphas, sigma_row, phi_row), CLIP_VALUE, None)
     phi_likelihood = np.sum(m / sigma_row * (phi_row - observed_phi_row)**2)

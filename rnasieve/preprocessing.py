@@ -15,7 +15,8 @@ def _off_simplex_distances(means, variances, bulk):
     max_variances = np.max(variances, axis=1).reshape(-1, 1)
     below_min_distances = np.clip((min_means - bulk) / max_variances, 0, None)
     above_max_distances = np.clip((bulk - max_means) / max_variances, 0, None)
-    return np.max(np.hstack((below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
+    return np.max(
+        np.hstack((below_min_distances, above_max_distances)), axis=1).reshape(-1, 1)
 
 
 def off_simplex_filter(phi, sigma, psi, quantile):
@@ -49,7 +50,8 @@ def adjust_variances(phi, sigma, psi, threshold):
 
 # Empirical Protocol Filters
 # Filter genes by their distance from the median in units of median deviations for various summary statistics.
-# Individual thresholds are based on empirical trends in thirteen tissues of the Tabula Muris dataset.
+# Individual thresholds are based on empirical trends in thirteen tissues
+# of the Tabula Muris dataset.
 
 # FACS/Droplet Filtering Helper Functions
 
@@ -80,7 +82,8 @@ def _fd_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
     pp_ratios_idxs = np.where(
         psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus)
 
-    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs, phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs,
+                                   phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
 
 
 def _compute_fd_threshold(phi, sigma, psi):
@@ -106,7 +109,8 @@ def _compute_fd_max_iter(phi, sigma, psi):
     pp_ratios_median, pp_ratios_mad = np.median(
         psi_phi_ratios), scipy.stats.median_absolute_deviation(psi_phi_ratios, scale=1)
 
-    if 0.52 < pp_ratios_mad / pp_ratios_median < 0.7 or .06 < np.quantile(psi_phi_ratios, 0.05) / pp_ratios_median < 0.18:
+    if 0.52 < pp_ratios_mad / pp_ratios_median < 0.7 or .06 < np.quantile(
+            psi_phi_ratios, 0.05) / pp_ratios_median < 0.18:
         return 1
     return 2
 
@@ -143,7 +147,8 @@ def _df_filter(phi, sigma, psi, md_plus=0, md_minus=np.inf):
     pp_ratios_idxs = np.where((pp_ratios_median - pp_ratios_mad * md_minus <= psi_phi_ratios)
                               & (psi_phi_ratios <= pp_ratios_median + pp_ratios_mad * md_plus))
 
-    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs, phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
+    return reduce(np.intersect1d, (phi_max_non_zero_idxs, psi_non_zero_idxs,
+                                   phi_max_idxs, sigma_max_idxs, sp_ratios_idxs, pp_ratios_idxs))
 
 
 def _compute_df_threshold(phi, sigma, psi):
