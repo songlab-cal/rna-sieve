@@ -8,6 +8,7 @@ ALPHA_MAX_ITER = 1
 
 # General Functions
 
+
 def compute_mixture_sigma(alpha, sigma, phi):
     return (phi**2 + sigma) @ alpha.T - (phi @ alpha.T)**2
 
