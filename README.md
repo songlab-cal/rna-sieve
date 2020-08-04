@@ -8,7 +8,7 @@ Input format to find_mixtures (with G = number of genes, K = number of cell type
   - m: 1 x K matrix populated with the number of cells used for the phi matrix reference for each cell type k.
   - psis: G x B matrix populated with the bulk RNA expression for a sample which will be deconvolved.
 
-Additional paramters:
+Additional parameters:
   - eps: Threshold parameter for determining convergence of optimization steps for alpha, the proportion estimates.
   - delta: Threshold parameter for determining termination of likelihood optimization.
   - max_iter: Maximum iterations for a single alpha optimization cycle.
@@ -16,5 +16,7 @@ Additional paramters:
   - parallelized: Flag for paralellization during phi minimization steps.
   - num_process: Number of threads used for parallelization if parallelized = True.
 
-Output format:
-  - alphaLS: B x K matrix where the ith row is the proportion estimate vector for the ith bulk.
+Output format (two tuples of the following format for slightly different schemes):
+  - alphas: B x K matrix where the ith row is the proportion estimate vector for the ith bulk.
+  - ns: 1 x B matrix where the ith entry is the ith bulk cell count estimate.
+  - phi: G x K matrix inferring the latent mean matrix.
