@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import scipy.optimize
 import scipy.stats
 from collections import Counter
@@ -325,4 +326,10 @@ def model_from_raw_counts(
     sigma = sigma[non_zero_idxs]
     psis = psis[non_zero_idxs]
 
-    return RNASieveModel(phi, sigma, m, labels), psis
+    # convert to DataFrame
+    phi_pd = pd.DataFrame(phi, columns=labels)
+    sigma_pd = pd.DataFrame(sigma, columns=labels)
+    m_pd = pd.DataFrame(m, columns=labels)
+    psis_pd = pd.DataFrame(psis, columns=[f'Bulk {i}' for i in range(psis.shape[1])])
+
+    return RNASieveModel(phi_pd, sigma_pd, m_pd), psis_pd

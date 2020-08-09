@@ -1,120 +1,78 @@
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
+import altair as alt
 from rnasieve.algo import find_mixtures
+import numbers
 
 
 class RNASieveModel:
-    def __init__(self, observed_phi, observed_sigma, observed_m, labels=None):
+    def __init__(self, observed_phi, observed_sigma, observed_m):
         assert observed_phi.shape == observed_sigma.shape, 'Reference mean matrix and variance matrix must have the same dimensions'
         assert observed_m.shape[1] == observed_phi.shape[1], 'Number of cell types must be consistent with reference matrix'
-        assert labels is None or len(
-            labels) == observed_phi.shape[1], 'Labels must match reference matrix dimension'
 
         self.observed_phi = observed_phi
         self.observed_sigma = observed_sigma
         self.observed_m = observed_m
-        self.labels = labels if labels is not None else list(
-            range(self.observed_phi.shape[1]))
+        self.psis = None
+        self.filter_idxs = None
+        self.alpha_hats = None
+        self.n_hats = None
+        self.phi_hat = None
 
-    def predict(self, psis, labels=None):
+    def predict(self, psis):
         assert psis.shape[0] == self.observed_phi.shape[0], 'Bulks must have the same number of genes as the reference matrix'
-        assert labels is None or len(
-            labels) == psis.shape[1], 'Labels must match bulk matrix dimension'
 
-        labels = labels if labels is not None else list(range(psis.shape[1]))
-        non_zero_idxs = np.where(psis.any(axis=1))
-        alpha_LS, n_hats, phi_hat = find_mixtures(
-            self.observed_phi[non_zero_idxs], self.observed_sigma[non_zero_idxs], self.observed_m, psis[non_zero_idxs])
-        return RNASieveResults(
-            self.observed_phi[non_zero_idxs],
-            self.observed_sigma[non_zero_idxs],
-            self.observed_m,
-            self.labels,
-            psis[non_zero_idxs],
-            labels,
-            alpha_LS,
-            n_hats,
-            phi_hat)
+        self.filter_idxs = np.where(psis.any(axis=1))
+        alpha_hats, n_hats, phi_hat = find_mixtures(
+            self.observed_phi.to_numpy()[self.filter_idxs],
+            self.observed_sigma.to_numpy()[self.filter_idxs],
+            self.observed_m.to_numpy(),
+            psis.to_numpy()[self.filter_idxs])[0]
 
-
-class RNASieveResults:
-    def __init__(
-            self,
-            observed_phi,
-            observed_sigma,
-            observed_m,
-            cell_type_labels,
-            psis,
-            bulk_labels,
-            alpha_hats,
-            n_hats,
-            phi_hat):
-        self.observed_phi = observed_phi
-        self.observed_sigma = observed_sigma
-        self.observed_m = observed_m
-        self.cell_type_labels = cell_type_labels
+        ref_labels = self.observed_phi.columns.values.tolist()
+        bulk_labels = psis.columns.values.tolist()
         self.psis = psis
-        self.bulk_labels = bulk_labels
-        self.alpha_hats = alpha_hats
-        self.n_hats = n_hats
-        self.phi_hat = phi_hat
+        self.alpha_hats = pd.DataFrame(data=alpha_hats,
+            index=bulk_labels, columns=ref_labels)
+        self.n_hats = pd.DataFrame(n_hats, index=bulk_labels, columns=['n_hat'])
+        self.phi_hat = pd.DataFrame(phi_hat, columns=ref_labels)
 
-    def plot_proportions(self, ax, plot_type="bar"):
-        plt.style.use('ggplot')
-        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        return self.alpha_hats
 
-        if plot_type == "bar":
-            bars = []
-            bar_width = 0.8 / self.alpha_hats.shape[1]
+    def plot_proportions(self, plot_type='bar'):
+        alpha_hats_melt = pd.melt(self.alpha_hats.reset_index(), id_vars=['index'])
 
-            for i in range(self.alpha_hats.shape[1]):
-                x_offset = (
-                    i - self.alpha_hats.shape[1] / 2) * bar_width + bar_width / 2
-                for x, y in enumerate(self.alpha_hats[:, i]):
-                    bar = ax.bar(x + x_offset, y, width=bar_width *
-                                 0.9, color=colors[i % len(colors)])
-                bars.append(bar[0])
+        if plot_type == 'bar':
+            chart = alt.Chart(alpha_hats_melt).mark_bar().encode(
+                x=alt.X('variable:N', axis=alt.Axis(title='Cell Type', labels=False)),
+                y=alt.Y('value:Q', axis=alt.Axis(title='Proportion')),
+                color='variable:N',
+                column=alt.Column('index:N', title='Bulk'),
+            )
 
-            ax.set_ylabel("Proportion of bulk")
-            ax.set_ylim((0, 1))
-            ax.set_xlabel("Bulk label")
-            ax.set_xticks(range(self.alpha_hats.shape[0]))
-            ax.set_xticklabels(self.bulk_labels)
-            ax.grid()
-            ax.legend(bars, self.cell_type_labels, bbox_to_anchor=(-.15, 1))
+        if plot_type == 'scatter':
+            assert isinstance(alpha_hats_melt['index'].iloc[0], numbers.Number), 'Bulk labels must be quantitative'
 
-        if plot_type == "scatter":
-            assert isinstance(self.bulk_labels[0], int) or isinstance(
-                self.bulk_labels[0], float), 'Bulk labels must be quantitative'
+            avg_line = alt.Chart(alpha_hats_melt).mark_line().encode(
+                x=alt.X('index:Q', axis=alt.Axis(title='Bulk Metric')),
+                y=alt.Y('mean(value):Q', axis=alt.Axis(title='Proportion')),
+                color='variable:N',
+                order='index:Q',
+            )
 
-            for i in range(self.alpha_hats.shape[1]):
-                ax.scatter(self.bulk_labels, self.alpha_hats[:, i], color=colors[i % len(
-                    colors)], label=self.cell_type_labels[i])
+            ind_scatter = alt.Chart(alpha_hats_melt).mark_point().encode(
+                x=alt.X('index:Q', axis=alt.Axis(title='Bulk Metric')),
+                y=alt.Y('value:Q', axis=alt.Axis(title='Proportion')),
+                color='variable:N',
+            )
 
-            ax.set_ylabel("Proportion of bulk")
-            ax.set_ylim((0, 1))
-            ax.set_xlabel("Bulk Metric")
-            ax.grid()
-            ax.legend(bbox_to_anchor=(-.15, 1))
+            chart = avg_line + ind_scatter
 
-        if plot_type == "stacked":
-            bottoms = np.zeros(self.alpha_hats.shape[0])
-            for i in range(self.alpha_hats.shape[1]):
-                ax.bar(np.arange(len(self.bulk_labels)),
-                       self.alpha_hats[:,
-                                       i],
-                       bottom=bottoms,
-                       edgecolor='white',
-                       width=1,
-                       label=self.cell_type_labels[i])
-                bottoms += self.alpha_hats[:, i]
+        if plot_type == 'stacked':
+            chart = alt.Chart(alpha_hats_melt).mark_bar().encode(
+                x=alt.X('index:N', axis=alt.Axis(title='Bulk')),
+                y=alt.Y('sum(value):Q', axis=alt.Axis(title='Proportion'), stack='normalize'),
+                color='variable:N',
+            )
 
-            ax.set_ylabel("Proportion of bulk")
-            ax.set_ylim((0, 1))
-            ax.set_xlabel("Bulk label")
-            ax.set_xticks(range(self.alpha_hats.shape[0]))
-            ax.set_xticklabels(self.bulk_labels)
-            ax.grid()
-            ax.legend(bbox_to_anchor=(-.15, 1))
-
-        return ax
+        return chart
