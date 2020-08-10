@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg
+from scipy.stats import norm
 from rnasieve.helper import compute_mixture_sigma, CLIP_VALUE
 
 # Confidence Interval Computation
@@ -71,7 +72,7 @@ def _partial_n_phi(phi, sigma, alpha, n):
             partial_mv_phi / (2 * n * mixture_variance)).reshape(1, -1)
 
 
-def inverse_observed_fisher(phi, sigma, alpha, n, m):
+def inverse_observed_fisher(phi, sigma, m, alpha, n):
     """Finds the inverse observed fisher information matrix.
     Returns an abbreviated square matrix of size K + 1
     where K is the number of cell types, to include the values
@@ -94,7 +95,7 @@ def inverse_observed_fisher(phi, sigma, alpha, n, m):
             2)[:alpha.shape[1] + 1, :alpha.shape[1] + 1]
 
 
-def cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, psi, n):
+def cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, n, psi):
     """Finds an adjusted inverse observed fisher information matrix
     for cross protocol experiments.
 
@@ -112,4 +113,11 @@ def cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, psi, n):
     filter_idxs = np.where(z_scores > np.quantile(
         z_scores, (z_scores.shape[0] - filter_length) / z_scores.shape[0]))[0]
     return inverse_observed_fisher(phi[filter_idxs], np.clip(
-        sigma[filter_idxs], 1, None), alpha, n, m)
+        sigma[filter_idxs], 1, None), m, alpha, n)
+
+def compute_marginal_confidence_intervals(phi, sigma, m, alpha, n, psi, sig=.05):
+    inverse_obs_FI = cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, n, psi)
+    c = norm.isf(sig / 2)
+    return [(alpha[0, i] - c * np.sqrt(inverse_obs_FI[i, i]),
+        alpha[0, i] + c * np.sqrt(inverse_obs_FI[i, i])) for i in range(alpha.shape[1])]
+    
