@@ -39,8 +39,9 @@ class RNASieveModel:
         bulk_labels = psis.columns.values.tolist()
         self.psis = psis
         self.alpha_hats = pd.DataFrame(data=alpha_hats,
-            index=bulk_labels, columns=ref_labels)
-        self.n_hats = pd.DataFrame(n_hats, index=bulk_labels, columns=['n_hat'])
+                                       index=bulk_labels, columns=ref_labels)
+        self.n_hats = pd.DataFrame(
+            n_hats, index=bulk_labels, columns=['n_hat'])
         self.phi_hat = pd.DataFrame(phi_hat, columns=ref_labels)
 
         return self.alpha_hats
@@ -48,7 +49,8 @@ class RNASieveModel:
     def compute_marginal_confidence_intervals(self, sig=.05):
         assert self.alpha_hats is not None, 'Please run predict before computing CIs'
 
-        marginal_ci_errs = np.empty((0, self.alpha_hats.shape[1]), dtype=np.float32)
+        marginal_ci_errs = np.empty(
+            (0, self.alpha_hats.shape[1]), dtype=np.float32)
         marginal_cis = []
         for i in range(self.alpha_hats.shape[0]):
             marginal_ci = compute_marginal_cis(
@@ -61,25 +63,33 @@ class RNASieveModel:
                 sig
             )
             marginal_cis.append(marginal_ci)
-            marginal_ci_errs = np.vstack((marginal_ci_errs,
-                np.array([(hi - low)/2 for low, hi in marginal_ci])))
+            marginal_ci_errs = np.vstack((marginal_ci_errs, np.array(
+                [(hi - low) / 2 for low, hi in marginal_ci])))
 
         ref_labels = self.observed_phi.columns.values.tolist()
         bulk_labels = self.psis.columns.values.tolist()
-        self.marginal_ci_errs = pd.DataFrame(marginal_ci_errs, index=bulk_labels,
-            columns=ref_labels)
+        self.marginal_ci_errs = pd.DataFrame(
+            marginal_ci_errs, index=bulk_labels, columns=ref_labels)
 
         return marginal_cis
 
     def plot_proportions(self, plot_type='bar'):
-        alpha_hats_melt = pd.melt(self.alpha_hats.reset_index(), id_vars=['index'],
-                var_name='cell_type', value_name='proportion')
+        alpha_hats_melt = pd.melt(
+            self.alpha_hats.reset_index(),
+            id_vars=['index'],
+            var_name='cell_type',
+            value_name='proportion')
 
         if self.marginal_ci_errs is not None:
-            marginal_ci_errs_melt = pd.melt(self.marginal_ci_errs.reset_index(),
-                    id_vars=['index'], var_name='cell_type', value_name='ci_err')
-            alpha_hats_melt = pd.merge(alpha_hats_melt, marginal_ci_errs_melt,
-                    left_on=['index', 'cell_type'], right_on=['index', 'cell_type'])
+            marginal_ci_errs_melt = pd.melt(
+                self.marginal_ci_errs.reset_index(),
+                id_vars=['index'],
+                var_name='cell_type',
+                value_name='ci_err')
+            alpha_hats_melt = pd.merge(
+                alpha_hats_melt, marginal_ci_errs_melt, left_on=[
+                    'index', 'cell_type'], right_on=[
+                    'index', 'cell_type'])
             alpha_hats_melt['ci_low'] = alpha_hats_melt.apply(lambda row: np.clip(
                 row['proportion'] - row['ci_err'], 0, 1), axis=1)
             alpha_hats_melt['ci_high'] = alpha_hats_melt.apply(lambda row: np.clip(
@@ -87,34 +97,41 @@ class RNASieveModel:
 
         if plot_type == 'bar':
             bars = alt.Chart().mark_bar().encode(
-                x=alt.X('cell_type:N', axis=alt.Axis(title='Cell Type', labels=False)),
-                y=alt.Y('proportion:Q', axis=alt.Axis(title='Proportion')),
-                color='cell_type:N',
-            )
+                x=alt.X(
+                    'cell_type:N', axis=alt.Axis(
+                        title='Cell Type', labels=False)), y=alt.Y(
+                    'proportion:Q', axis=alt.Axis(
+                        title='Proportion')), color='cell_type:N', )
 
             if self.marginal_ci_errs is not None:
                 error_bars = alt.Chart().mark_errorbar().encode(
-                    x=alt.X('cell_type:N', axis=alt.Axis(title='Cell Type', labels=False)),
+                    x=alt.X(
+                        'cell_type:N',
+                        axis=alt.Axis(
+                            title='Cell Type',
+                            labels=False)),
                     y='ci_low:Q',
                     y2='ci_high:Q',
                 )
-                chart = alt.layer(bars, error_bars, data=alpha_hats_melt).facet(
-                    column=alt.Column('index:N', title='Bulk'),
-                )
+                chart = alt.layer(
+                    bars, error_bars, data=alpha_hats_melt).facet(
+                    column=alt.Column(
+                        'index:N', title='Bulk'), )
             else:
                 chart = alt.layer(bars, data=alpha_hats_melt).facet(
                     column=alt.Column('index:N', title='Bulk'),
                 )
 
         if plot_type == 'scatter':
-            assert isinstance(alpha_hats_melt['index'].iloc[0], numbers.Number), 'Bulk labels must be quantitative'
+            assert isinstance(
+                alpha_hats_melt['index'].iloc[0], numbers.Number), 'Bulk labels must be quantitative'
 
             avg_line = alt.Chart(alpha_hats_melt).mark_line().encode(
-                x=alt.X('index:Q', axis=alt.Axis(title='Bulk Metric')),
-                y=alt.Y('mean(proportion):Q', axis=alt.Axis(title='Proportion')),
-                color='cell_type:N',
-                order='index:Q',
-            )
+                x=alt.X(
+                    'index:Q', axis=alt.Axis(
+                        title='Bulk Metric')), y=alt.Y(
+                    'mean(proportion):Q', axis=alt.Axis(
+                        title='Proportion')), color='cell_type:N', order='index:Q', )
 
             ind_scatter = alt.Chart(alpha_hats_melt).mark_point().encode(
                 x=alt.X('index:Q', axis=alt.Axis(title='Bulk Metric')),
@@ -126,9 +143,10 @@ class RNASieveModel:
 
         if plot_type == 'stacked':
             chart = alt.Chart(alpha_hats_melt).mark_bar().encode(
-                x=alt.X('index:N', axis=alt.Axis(title='Bulk')),
-                y=alt.Y('sum(proportion):Q', axis=alt.Axis(title='Proportion'), stack='normalize'),
-                color='cell_type:N',
-            )
+                x=alt.X(
+                    'index:N', axis=alt.Axis(
+                        title='Bulk')), y=alt.Y(
+                    'sum(proportion):Q', axis=alt.Axis(
+                        title='Proportion'), stack='normalize'), color='cell_type:N', )
 
         return chart

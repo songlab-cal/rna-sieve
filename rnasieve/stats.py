@@ -101,23 +101,22 @@ def cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, n, psi):
 
     Takes in phi, sigma, psi matrices filtered
     by filter_droplet_to_facs/filter_facs_to_droplet."""
+    G = phi.shape[0]
     mixture_variance = compute_mixture_sigma(alpha, sigma, phi)
     z_scores = (phi @ alpha.T - psi / n) / np.sqrt(mixture_variance / n)
-    z_tail = np.clip(
-        np.count_nonzero(
-            (z_scores > np.median(z_scores) + 2) |
-            (z_scores < np.median(z_scores) - 2)),
-        CLIP_VALUE,
-        None)
-    filter_length = np.min((np.round(3 * z_scores.shape[0] / z_tail), 300))
-    filter_idxs = np.where(z_scores > np.quantile(
-        z_scores, (z_scores.shape[0] - filter_length) / z_scores.shape[0]))[0]
+    z_tail = (z_scores**2).sum() - G
+    filter_length = max(np.ceil(500 - 400 * max(z_tail, 0)), 100)
+    filter_idxs = np.arange(G) if G < 500 else np.random.choice(
+        G, min(filter_length, G), replace=False)
+
     return inverse_observed_fisher(phi[filter_idxs], np.clip(
         sigma[filter_idxs], 1, None), m, alpha, n)
 
-def compute_marginal_confidence_intervals(phi, sigma, m, alpha, n, psi, sig=.05):
-    inverse_obs_FI = cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, n, psi)
+
+def compute_marginal_confidence_intervals(
+        phi, sigma, m, alpha, n, psi, sig=.05):
+    inverse_obs_FI = cross_protocol_inverse_observed_fisher(
+        phi, sigma, m, alpha, n, psi)
     c = norm.isf(sig / 2)
-    return [(alpha[0, i] - c * np.sqrt(inverse_obs_FI[i, i]),
-        alpha[0, i] + c * np.sqrt(inverse_obs_FI[i, i])) for i in range(alpha.shape[1])]
-    
+    return [(alpha[0, i] - c * np.sqrt(inverse_obs_FI[i, i]), alpha[0, i] +
+             c * np.sqrt(inverse_obs_FI[i, i])) for i in range(alpha.shape[1])]

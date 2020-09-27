@@ -282,6 +282,7 @@ def _trimmed_mean_mtx(M, frac):
     trim_idx = int(M.shape[1] * frac)
     return M[:, sorted_idxs[trim_idx:-trim_idx]]
 
+
 def model_from_raw_counts(
         raw_counts,
         bulks,
@@ -330,6 +331,9 @@ def model_from_raw_counts(
     phi_pd = pd.DataFrame(phi, columns=labels)
     sigma_pd = pd.DataFrame(sigma, columns=labels)
     m_pd = pd.DataFrame(m, columns=labels)
-    psis_pd = pd.DataFrame(psis, columns=[f'Bulk {i}' for i in range(psis.shape[1])])
+    psis_pd = pd.DataFrame(
+        psis, columns=[
+            f'Bulk {i}' for i in range(
+                psis.shape[1])])
 
     return RNASieveModel(phi_pd, sigma_pd, m_pd), psis_pd
