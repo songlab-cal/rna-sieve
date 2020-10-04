@@ -25,8 +25,8 @@ setup(
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
-        'Intended Audience :: Computational Biologists',
-        'Topic :: Software Development :: Build Tools',
+        'Intended Audience :: Science/Research',
+        'Topic :: Scientific/Engineering :: Bio-Informatics',
         'License :: OSI Approved :: GNU General Public License (GPL)',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
