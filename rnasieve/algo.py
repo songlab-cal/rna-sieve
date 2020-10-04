@@ -1,3 +1,7 @@
+"""
+The core algorithm of RNA-Sieve, which is defined as `find_mixtures(...)`.
+"""
+
 import numpy as np
 import cvxpy as cp
 import scipy.optimize

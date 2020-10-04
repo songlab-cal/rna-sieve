@@ -7,8 +7,8 @@ setup(
     description='A library for the statistical deconvolution of RNA bulk samples with single-cell references.',
     author='Justin Hong',
     author_email='justinhong@berkeley.edu',
-    url='https://github.com/jjhong922/rna-sieve',
-    download_url='https://github.com/user/reponame/archive/v_01.tar.gz',
+    url='https://github.com/songlab-cal/rna-sieve',
+    download_url='https://github.com/songlab-cal/archive/v_01.tar.gz',
     keywords=[
         'rna',
         'deconvolution',

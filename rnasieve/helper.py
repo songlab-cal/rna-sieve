@@ -1,3 +1,7 @@
+"""
+Helper functions for computing common terms used in RNA-Sieve.
+"""
+
 import numpy as np
 
 # Constants

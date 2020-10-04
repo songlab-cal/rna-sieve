@@ -1,3 +1,8 @@
+"""
+Post-processing statistics calculations for RNA-Sieve.
+
+Currently only contains functions for confidence interval computation.
+"""
 import numpy as np
 import scipy.linalg
 from scipy.stats import norm
@@ -115,6 +120,8 @@ def cross_protocol_inverse_observed_fisher(phi, sigma, m, alpha, n, psi):
 
 def compute_marginal_confidence_intervals(
         phi, sigma, m, alpha, n, psi, sig=.05):
+    """Computes an array of tuples, each representing a confidence interval of a
+    cell type proportion estimate in alpha at a significance level `sig`."""
     inverse_obs_FI = cross_protocol_inverse_observed_fisher(
         phi, sigma, m, alpha, n, psi)
     c = norm.isf(sig / 2)

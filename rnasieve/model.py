@@ -1,3 +1,6 @@
+"""
+Defines a class that can be used to run RNA-Sieve in an object-oriented manner.
+"""
 import numpy as np
 import pandas as pd
 import altair as alt
@@ -7,6 +10,13 @@ import numbers
 
 
 class RNASieveModel:
+    """
+    RNASieveModel is a class that wraps the core algorithm of RNA-Sieve, and provides
+    additional instance functions for plotting and computing confidence intervals.
+
+    Initialize with reference data (phi, sigma, m) and run predict on bulk vector(s).
+    """
+
     def __init__(self, observed_phi, observed_sigma, observed_m):
         assert observed_phi.shape == observed_sigma.shape, 'Reference mean matrix and variance matrix must have the same dimensions'
         assert observed_m.shape[1] == observed_phi.shape[1], 'Number of cell types must be consistent with reference matrix'
