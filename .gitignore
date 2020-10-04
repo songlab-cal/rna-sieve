@@ -1,3 +1,5 @@
+.DS_Store
+
 rnasieve/__pycache__/
 examples/__pycache__/
 examples/.ipynb_checkpoints/
