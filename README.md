@@ -2,7 +2,7 @@
 
 RNA-Sieve is a method for the deconvolution of bulk cell samples via single-cell RNA expression data.
 
-![RNA-sieve-viz](readme_figures/deconvolution_plot_3d.png)
+![RNA-sieve-viz](https://raw.githubusercontent.com/songlab-cal/rna-sieve/v_0_1_1/readme_figures/deconvolution_plot_3d.png)
 
 ## Associated Work
 Our preprint is currently available at [https://www.biorxiv.org/content/10.1101/2020.10.01.322867v1](https://www.biorxiv.org/content/10.1101/2020.10.01.322867v1).
@@ -21,7 +21,7 @@ $ pip3 install rna-sieve
 
 ## Example Usage
 
-![muscle-FD-example](readme_figures/muscle_age_FD.png)
+![muscle-FD-example](https://raw.githubusercontent.com/songlab-cal/rna-sieve/v_0_1_1/readme_figures/muscle_age_FD.png)
 
 For example usage, please reference [the example Jupyter notebook](https://github.com/songlab-cal/rna-sieve/blob/master/examples/example.ipynb) for Python 3 usage,
 or [the Mathematica notebook](https://github.com/songlab-cal/rna-sieve/blob/master/mathematica/rnasieve.nb) for Mathematica usage.

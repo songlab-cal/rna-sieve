@@ -1,6 +1,7 @@
 # setup.py files
 MANIFEST
 dist
+rnasieve.egg-info
 
 # Mac files
 .DS_Store
