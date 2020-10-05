@@ -1,10 +1,17 @@
-from distutils.core import setup
+from setuptools import setup
+from os import path
+
+with open('README.md', encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(
     name='rnasieve',
     packages=['rnasieve'],
     version='0.1',
     license='GPL',
     description='A library for the statistical deconvolution of RNA bulk samples with single-cell references.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Justin Hong',
     author_email='justinhong@berkeley.edu',
     url='https://github.com/songlab-cal/rna-sieve',
@@ -24,7 +31,6 @@ setup(
         'altair',
     ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'License :: OSI Approved :: GNU General Public License (GPL)',
