@@ -15,7 +15,7 @@ setup(
     author='Justin Hong',
     author_email='justinhong@berkeley.edu',
     url='https://github.com/songlab-cal/rna-sieve',
-    download_url='https://github.com/songlab-cal/archive/v_01.tar.gz',
+    download_url='https://github.com/songlab-cal/archive/v_0_1_1.tar.gz',
     keywords=[
         'rna',
         'deconvolution',
