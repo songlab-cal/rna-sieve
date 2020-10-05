@@ -7,7 +7,7 @@ with open('README.md', encoding='utf-8') as f:
 setup(
     name='rnasieve',
     packages=['rnasieve'],
-    version='0.1',
+    version='0.1.1',
     license='GPL',
     description='A library for the statistical deconvolution of RNA bulk samples with single-cell references.',
     long_description=long_description,
