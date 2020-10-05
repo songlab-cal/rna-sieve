@@ -1,6 +1,14 @@
+# setup.py files
+MANIFEST
+dist
+
+# Mac files
 .DS_Store
 
+# Jupyter notebook files
 rnasieve/__pycache__/
 examples/__pycache__/
 examples/.ipynb_checkpoints/
+
+# Example data
 example_data/
