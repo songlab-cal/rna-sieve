@@ -14,9 +14,9 @@ If you find RNA-Sieve useful, please cite our work at:
 
 ## Installation
 
-For Python 3, we recommend that you install `rna-sieve` via `pip`.
+For Python 3, we recommend that you install `rnasieve` via `pip`.
 ```bash
-$ pip3 install rna-sieve
+$ pip3 install rnasieve
 ```
 
 ## Example Usage
