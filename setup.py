@@ -7,7 +7,7 @@ with open('README.md', encoding='utf-8') as f:
 setup(
     name='rnasieve',
     packages=['rnasieve'],
-    version='0.1.2',
+    version='0.1.3',
     license='GPL',
     description='A library for the statistical deconvolution of RNA bulk samples with single-cell references.',
     long_description=long_description,
@@ -15,7 +15,7 @@ setup(
     author='Justin Hong',
     author_email='justinhong@berkeley.edu',
     url='https://github.com/songlab-cal/rna-sieve',
-    download_url='https://github.com/songlab-cal/archive/v_0_1_2.tar.gz',
+    download_url='https://github.com/songlab-cal/archive/v_0_1_3.tar.gz',
     keywords=[
         'rna',
         'deconvolution',
