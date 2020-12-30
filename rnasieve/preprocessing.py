@@ -280,7 +280,10 @@ def _trimmed_mean_mtx(M, frac):
     totals = M.sum(axis=0)
     sorted_idxs = np.argsort(totals)
     trim_idx = int(M.shape[1] * frac)
-    return M[:, sorted_idxs[trim_idx:-trim_idx]]
+    if not trim_idx:
+        return M
+    else:
+        return M[:, sorted_idxs[trim_idx:-trim_idx]]
 
 
 def model_from_raw_counts(
