@@ -13,6 +13,14 @@ from rnasieve.helper import CLIP_VALUE, ALPHA_EPS, ALPHA_MAX_ITER, compute_mixtu
 # Parallelization Global shared arrays
 
 shared_dict = {}
+_MINIMIZE_PHI_KEY = 'MINIMIZE_PHI'
+_PHI_GRAD_KEY = 'PHI_GRAD'
+_PHI_SHAPE_KEY = 'PHI_SHAPE'
+
+
+def initialize_shared_arr(shared_array, shared_array_id, phi_shape):
+    shared_dict[shared_array_id] = shared_array
+    shared_dict[_PHI_SHAPE_KEY] = phi_shape
 
 # Updates (1)
 
@@ -57,7 +65,9 @@ def _minimize_phi_row(
         phi_final = np.clip(phi_prev, 0, None)
 
     if parallelized and shared_array_id:
-        phi_tmp = np.ctypeslib.as_array(shared_dict[shared_array_id])
+        phi_shape = shared_dict[_PHI_SHAPE_KEY]
+        phi_tmp = np.frombuffer(
+            shared_dict[shared_array_id]).reshape(phi_shape)
         phi_tmp[row_idx, :] = phi_final
 
     return phi_final
@@ -84,12 +94,16 @@ def _minimize_phi(
                 alphas, ns, m)))
         return phi_next
     else:
-        phi_next = np.ctypeslib.as_ctypes(np.zeros(phi_prev.shape))
         phi_next_shared_array = sharedctypes.RawArray(
-            phi_next._type_, phi_next)
-        shared_array_id = "MINIMIZE_PHI"
-        shared_dict[shared_array_id] = phi_next_shared_array
-        p = Pool(processes=num_process)
+            'd', phi_prev.shape[0] * phi_prev.shape[1])
+        shared_array_id = _MINIMIZE_PHI_KEY
+        p = Pool(
+            processes=num_process,
+            initializer=initialize_shared_arr,
+            initargs=(
+                phi_next_shared_array,
+                shared_array_id,
+                phi_prev.shape))
         p.starmap(_minimize_phi_row, [(
             phi_prev[i, :].reshape(1, -1),
             psis[i].reshape(1, -1),
@@ -97,7 +111,7 @@ def _minimize_phi(
             sigma[i, :].reshape(1, -1),
             alphas, ns, m, i, True, shared_array_id) for i in range(phi_prev.shape[0])])
         p.close()
-        return np.ctypeslib.as_array(phi_next_shared_array)
+        return np.frombuffer(phi_next_shared_array).reshape(phi_prev.shape)
 
 
 def _minimize_alpha(alpha_prev, sigma, phi, psi, n):
@@ -234,7 +248,9 @@ def _minimize_phi_row_grad(
     phi_row_clipped[phi_row_clipped <= CLIP_VALUE] = 0.
 
     if parallelized and shared_array_id:
-        phi_tmp = np.ctypeslib.as_array(shared_dict[shared_array_id])
+        phi_shape = shared_dict[_PHI_SHAPE_KEY]
+        phi_tmp = np.frombuffer(
+            shared_dict[shared_array_id]).reshape(phi_shape)
         phi_tmp[row_idx, :] = phi_row_clipped
 
     return phi_row_clipped
@@ -263,12 +279,16 @@ def _minimize_phi_grad(
                 m)))
         return phi_next
     else:
-        phi_next = np.ctypeslib.as_ctypes(np.zeros(phi_past.shape))
         phi_next_shared_array = sharedctypes.RawArray(
-            phi_next._type_, phi_next)
-        shared_array_id = "PHI_GRAD"
-        shared_dict[shared_array_id] = phi_next_shared_array
-        p = Pool(processes=num_process)
+            'd', phi_past.shape[0] * phi_past.shape[1])
+        shared_array_id = _PHI_GRAD_KEY
+        p = Pool(
+            processes=num_process,
+            initializer=initialize_shared_arr,
+            initargs=(
+                phi_next_shared_array,
+                shared_array_id,
+                phi_past.shape))
         p.starmap(_minimize_phi_row_grad, [
             (phi_past[i, :].reshape(1, -1),
              observed_phi[i, :].reshape(1, -1),
@@ -281,7 +301,7 @@ def _minimize_phi_grad(
              True,
              shared_array_id) for i in range(phi_past.shape[0])])
         p.close()
-        return np.ctypeslib.as_array(phi_next_shared_array)
+        return np.frombuffer(phi_next_shared_array).reshape(phi_past.shape)
 
 
 def _alternate_gradient_descent(
@@ -310,8 +330,8 @@ def _alternate_gradient_descent(
         psis,
         sigma,
         m,
-        parallelized,
-        num_process)
+        parallelized=parallelized,
+        num_process=num_process)
     alpha_nexts = np.zeros(alpha_pasts.shape)
     for i in range(alpha_pasts.shape[0]):
         alpha_nexts[i] = _minimize_alpha_LS_helper(
@@ -414,7 +434,7 @@ def find_mixtures(phi, sigma, m, psis, eps=1e-1, delta=1e-1, max_iter=10,
 
     alpha_nexts, n_nexts, phi_hat = _alternate_minimization(
         phi, sigma, m, psis, alpha_inits, n_inits,
-        eps, delta, max_iter, parallelized, num_process)
+        eps, delta, max_iter, parallelized=parallelized, num_process=num_process)
     alpha_nexts, n_nexts, phi_hat = _alternate_gradient_descent(
         phi, phi_hat, sigma, m, psis, alpha_nexts, n_nexts,
         eps, delta, max_iter, parallelized, num_process)

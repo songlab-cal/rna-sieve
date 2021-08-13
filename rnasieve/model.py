@@ -66,7 +66,6 @@ class RNASieveModel:
             marginal_ci = compute_marginal_cis(
                 self.phi_hat.to_numpy(),
                 self.observed_sigma.to_numpy()[self.filter_idxs],
-                self.observed_m.to_numpy(),
                 self.alpha_hats.to_numpy()[i].reshape(1, -1),
                 self.n_hats.to_numpy()[i],
                 self.psis.to_numpy()[self.filter_idxs, i].reshape(-1, 1),
