@@ -5,12 +5,13 @@ RNA-Sieve is a method for the deconvolution of bulk cell samples via single-cell
 ![RNA-sieve-viz](https://raw.githubusercontent.com/songlab-cal/rna-sieve/v_0_1_1/readme_figures/deconvolution_plot_3d.png)
 
 ## Associated Work
-Our preprint is currently available at [https://www.biorxiv.org/content/10.1101/2020.10.01.322867v1](https://www.biorxiv.org/content/10.1101/2020.10.01.322867v1).
+Our work has been published in [Genome Research](https://genome.cshlp.org/content/early/2021/07/22/gr.272344.120).
+The manuscript is also available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2020.10.01.322867v1).
 
-If you find RNA-Sieve useful, please cite our work at:
-> *RNA-Sieve: A likelihood-based deconvolution of bulk gene expression data using single-cell references*<br />
-> <small>Dan D. Erdmann-Pham, Jonathan Fischer, Justin Hong, Yun S. Song<br /></small>
-> bioRxiv 2020.10.01.322867; doi: [https://doi.org/10.1101/2020.10.01.322867](https://doi.org/10.1101/2020.10.01.322867)
+If you find RNA-Sieve useful, please cite our work at ([Google Scholar](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C5&authuser=1&q=A+likelihood-based+deconvolution+of+bulk+gene+expression+data+using+single-cell+references&btnG=#d=gs_cit&u=%2Fscholar%3Fq%3Dinfo%3AKSRCjNjl8Y4J%3Ascholar.google.com%2F%26output%3Dcite%26scirp%3D0%26hl%3Den%26authuser%3D1)):
+> Erdmann-Pham, D. D., Fischer, J., Hong, J., & Song, Y. S. (2021).<br />
+> *A likelihood-based deconvolution of bulk gene expression data using single-cell references*.<br />
+> Genome Research, gr-272344.
 
 ## Installation
 
