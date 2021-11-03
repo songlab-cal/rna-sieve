@@ -289,6 +289,7 @@ def _trimmed_mean_mtx(M, frac):
 def model_from_raw_counts(
         raw_counts,
         bulks,
+        gene_labels=None,
         trim_percent=0.02,
         gene_thresh=0.2,
         normalization=True):
@@ -317,26 +318,28 @@ def model_from_raw_counts(
 
     m = np.array(m).reshape(1, -1)
 
+    # convert to DataFrame
+    if gene_labels is not None and len(gene_labels) != phi.shape[0]:
+        raise ValueError("Gene labels length does match counts dimension.")
+    phi_df = pd.DataFrame(phi, index=gene_labels, columns=labels)
+    sigma_df = pd.DataFrame(sigma, index=gene_labels, columns=labels)
+    m_df = pd.DataFrame(m, columns=labels)
+    psis_df = pd.DataFrame(
+        bulks, index=gene_labels, columns=[
+            f'Bulk {i}' for i in range(
+                bulks.shape[1])])
+
     # remove low info idxs
     high_info_idxs = sorted(
         [e for e in list(set(high_info_cts.elements())) if high_info_cts[e] > 0])
-    phi = phi[high_info_idxs]
-    sigma = sigma[high_info_idxs]
-    psis = bulks[high_info_idxs]
+    phi_df = phi_df.iloc[high_info_idxs]
+    sigma_df = sigma_df.iloc[high_info_idxs]
+    psis_df = psis_df.iloc[high_info_idxs]
 
     # remove all zero rows
-    non_zero_idxs = np.where(phi.any(axis=1))
-    phi = phi[non_zero_idxs]
-    sigma = sigma[non_zero_idxs]
-    psis = psis[non_zero_idxs]
+    non_zero_idxs = np.where(phi_df.any(axis=1))
+    phi_df = phi_df.iloc[non_zero_idxs]
+    sigma_df = sigma_df.iloc[non_zero_idxs]
+    psis_df = psis_df.iloc[non_zero_idxs]
 
-    # convert to DataFrame
-    phi_pd = pd.DataFrame(phi, columns=labels)
-    sigma_pd = pd.DataFrame(sigma, columns=labels)
-    m_pd = pd.DataFrame(m, columns=labels)
-    psis_pd = pd.DataFrame(
-        psis, columns=[
-            f'Bulk {i}' for i in range(
-                psis.shape[1])])
-
-    return RNASieveModel(phi_pd, sigma_pd, m_pd), psis_pd
+    return RNASieveModel(phi_df, sigma_df, m_df), psis_df
